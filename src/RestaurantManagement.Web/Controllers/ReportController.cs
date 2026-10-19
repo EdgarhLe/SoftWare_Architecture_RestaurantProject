@@ -21,6 +21,12 @@ public class ReportController : Controller
     }
 
     [HttpGet]
+    public IActionResult Index()
+    {
+        return RedirectToAction(nameof(Revenue));
+    }
+
+    [HttpGet]
     public async Task<IActionResult> Revenue(DateOnly? fromDate, DateOnly? toDate)
     {
         var from = fromDate ?? DateOnly.FromDateTime(DateTime.Now.AddDays(-30));

@@ -130,7 +130,7 @@ public class CloseShiftViewModel
 
 public class CheckoutViewModel
 {
-    public InvoiceDto Invoice { get; set; } = null!;
+    public InvoiceDto? Invoice { get; set; }
     public int OrderId { get; set; }
     public string? CustomerPhone { get; set; }
 
@@ -140,7 +140,9 @@ public class CheckoutViewModel
     [Display(Name = "Tiền khách đưa (VNĐ)")]
     public decimal CashGiven { get; set; }
 
-    public decimal ChangeAmount => CashGiven >= Invoice.FinalAmount ? CashGiven - Invoice.FinalAmount : 0;
+    public decimal FinalAmount { get; set; }
+
+    public decimal ChangeAmount => CashGiven >= (Invoice?.FinalAmount ?? FinalAmount) ? CashGiven - (Invoice?.FinalAmount ?? FinalAmount) : 0;
     public string? VietQrUrl { get; set; }
 }
 

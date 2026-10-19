@@ -61,6 +61,7 @@ public class InvoiceController : Controller
             CustomerPhone = customerPhone,
             PaymentMethod = PaymentMethod.Cash,
             CashGiven = invoice.FinalAmount,
+            FinalAmount = invoice.FinalAmount,
             VietQrUrl = vietQrUrl
         };
 
@@ -77,7 +78,7 @@ public class InvoiceController : Controller
             model.OrderId,
             staffId,
             model.PaymentMethod,
-            model.PaymentMethod == PaymentMethod.Cash ? model.CashGiven : model.Invoice?.FinalAmount ?? 0m
+            model.PaymentMethod == PaymentMethod.Cash ? model.CashGiven : model.FinalAmount
         ));
 
         if (!result.IsSuccess)
