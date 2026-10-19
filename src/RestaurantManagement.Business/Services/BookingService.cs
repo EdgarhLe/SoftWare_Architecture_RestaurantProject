@@ -15,6 +15,7 @@ public interface IBookingService
     Task<Result<List<AvailableTableDto>>> SearchAvailableTablesAsync(SearchAvailableTablesQueryDto query, CancellationToken cancellationToken = default);
     Task<Result<BookingConfirmationDto>> CreateBookingAsync(CreateBookingDto dto, CancellationToken cancellationToken = default);
     Task<Result<BookingConfirmationDto>> ConfirmBookingPaymentAsync(int bookingId, string transactionRef, string provider, CancellationToken cancellationToken = default);
+    Task<Result<BookingConfirmationDto>> GetBookingByIdAsync(int bookingId, CancellationToken cancellationToken = default);
     Task<Result<BookingConfirmationDto>> GetBookingByCodeAsync(string bookingCode, string phoneNumber, CancellationToken cancellationToken = default);
     Task<Result<CancelBookingResultDto>> CancelBookingAsync(CancelBookingDto dto, CancellationToken cancellationToken = default);
     Task<List<BookingConfirmationDto>> GetTodayBookingsAsync(CancellationToken cancellationToken = default);
@@ -299,6 +300,32 @@ public class BookingService : IBookingService
 
         if (booking == null)
             return Result<BookingConfirmationDto>.Failure(Error.NotFound("Booking.NotFound", "Không tìm thấy đơn đặt bàn với mã và số điện thoại đã cung cấp."));
+
+        return Result<BookingConfirmationDto>.Success(new BookingConfirmationDto(
+            booking.Id,
+            booking.BookingCode,
+            booking.Table.TableNumber,
+            booking.Table.Area.AreaName,
+            booking.CustomerName,
+            booking.PhoneNumber,
+            booking.StartTime,
+            booking.GuestCount,
+            booking.DepositAmount,
+            booking.Status,
+            booking.HoldExpiresAt
+        ));
+    }
+
+    public async Task<Result<BookingConfirmationDto>> GetBookingByIdAsync(int bookingId, CancellationToken cancellationToken = default)
+    {
+        var booking = await _uow.Bookings.GetAll()
+            .Include(b => b.Table)
+                .ThenInclude(t => t.Area)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Id == bookingId, cancellationToken);
+
+        if (booking == null)
+            return Result<BookingConfirmationDto>.Failure(Error.NotFound("Booking.NotFound", "Không tìm thấy thông tin đặt bàn."));
 
         return Result<BookingConfirmationDto>.Success(new BookingConfirmationDto(
             booking.Id,

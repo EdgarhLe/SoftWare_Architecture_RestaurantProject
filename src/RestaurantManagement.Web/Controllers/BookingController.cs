@@ -156,17 +156,14 @@ public class BookingController : Controller
     [HttpGet]
     public async Task<IActionResult> Payment(int bookingId)
     {
-        var todayBookings = await _bookingService.GetTodayBookingsAsync();
-        var booking = todayBookings.FirstOrDefault(b => b.BookingId == bookingId);
-
-        // Nếu không có trong today bookings thì tra cứu qua lookup
-        if (booking == null)
+        var bookingResult = await _bookingService.GetBookingByIdAsync(bookingId);
+        if (!bookingResult.IsSuccess)
         {
-            // fallback: return error if not found
-            TempData["ErrorMessage"] = "Không tìm thấy thông tin đặt bàn hoặc thời hạn giữ chỗ đã kết thúc.";
+            TempData["ErrorMessage"] = bookingResult.Error?.Description ?? "Không tìm thấy thông tin đặt bàn hoặc thời hạn giữ chỗ đã kết thúc.";
             return RedirectToAction(nameof(Search));
         }
 
+        var booking = bookingResult.Value;
         var amountInt = (long)booking.DepositAmount;
         var qrContent = $"COC {booking.BookingCode}";
         var vietQrUrl = $"https://img.vietqr.io/image/MB-09123456789-compact2.png?amount={amountInt}&addInfo={Uri.EscapeDataString(qrContent)}&accountName=NHA%20HANG%20SEN%20VIET";
