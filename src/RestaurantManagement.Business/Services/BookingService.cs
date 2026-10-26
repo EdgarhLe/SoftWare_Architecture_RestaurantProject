@@ -29,17 +29,20 @@ public class BookingService : IBookingService
     private readonly RefundPolicy _refundPolicy;
     private readonly RestaurantRulesOptions _options;
     private readonly TimeZoneInfo _timeZone;
+    private readonly IEmailService _emailService;
 
     public BookingService(
         IUnitOfWork uow,
         DepositPolicy depositPolicy,
         RefundPolicy refundPolicy,
-        IOptions<RestaurantRulesOptions> options)
+        IOptions<RestaurantRulesOptions> options,
+        IEmailService emailService)
     {
         _uow = uow;
         _depositPolicy = depositPolicy;
         _refundPolicy = refundPolicy;
         _options = options.Value;
+        _emailService = emailService;
 
         try
         {
@@ -221,6 +224,7 @@ public class BookingService : IBookingService
         var booking = await _uow.Bookings.GetAll()
             .Include(b => b.Table)
                 .ThenInclude(t => t.Area)
+            .Include(b => b.Customer)
             .FirstOrDefaultAsync(b => b.Id == bookingId, cancellationToken);
 
         if (booking == null)
@@ -275,7 +279,7 @@ public class BookingService : IBookingService
             await _uow.PaymentTransactions.AddAsync(transaction, cancellationToken);
             await _uow.SaveChangesAsync(cancellationToken);
 
-            return Result<BookingConfirmationDto>.Success(new BookingConfirmationDto(
+            var confirmation = new BookingConfirmationDto(
                 booking.Id,
                 booking.BookingCode,
                 booking.Table.TableNumber,
@@ -287,7 +291,26 @@ public class BookingService : IBookingService
                 booking.DepositAmount,
                 booking.Status,
                 booking.HoldExpiresAt
-            ));
+            );
+
+            // Gửi email xác nhận đặt bàn & vé điện tử
+            var customerEmail = booking.Customer?.Email;
+            if (!string.IsNullOrWhiteSpace(customerEmail))
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _emailService.SendBookingConfirmationEmailAsync(confirmation, customerEmail);
+                    }
+                    catch
+                    {
+                        // Background email failure must not disrupt payment
+                    }
+                });
+            }
+
+            return Result<BookingConfirmationDto>.Success(confirmation);
         }, cancellationToken);
     }
 
@@ -347,6 +370,7 @@ public class BookingService : IBookingService
     {
         var booking = await _uow.Bookings.GetAll()
             .Include(b => b.Table)
+            .Include(b => b.Customer)
             .FirstOrDefaultAsync(b => b.BookingCode == dto.BookingCode.Trim() && b.PhoneNumber == dto.PhoneNumber.Trim(), cancellationToken);
 
         if (booking == null)
@@ -385,13 +409,32 @@ public class BookingService : IBookingService
 
             await _uow.SaveChangesAsync(cancellationToken);
 
-            return Result<CancelBookingResultDto>.Success(new CancelBookingResultDto(
+            var cancelResult = new CancelBookingResultDto(
                 booking.BookingCode,
                 booking.DepositAmount,
                 rate,
                 refundAmount,
                 reason
-            ));
+            );
+
+            // Gửi email thông báo hủy bàn & số tiền hoàn cọc
+            var customerEmail = booking.Customer?.Email;
+            if (!string.IsNullOrWhiteSpace(customerEmail))
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _emailService.SendBookingCancellationEmailAsync(cancelResult, customerEmail, booking.CustomerName);
+                    }
+                    catch
+                    {
+                        // Background email failure must not disrupt cancellation
+                    }
+                });
+            }
+
+            return Result<CancelBookingResultDto>.Success(cancelResult);
         }, cancellationToken);
     }
 

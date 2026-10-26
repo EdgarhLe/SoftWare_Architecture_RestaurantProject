@@ -19,6 +19,7 @@ public static class DependencyInjection
 
         // 2. Cấu hình Options
         services.Configure<RestaurantRulesOptions>(configuration.GetSection(RestaurantRulesOptions.SectionName));
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
 
         // 3. Thời gian hệ thống TimeProvider
         services.AddSingleton(TimeProvider.System);
@@ -59,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ITableService, TableService>();
         services.AddScoped<IBookingService, BookingService>();
+        services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<IShiftService, ShiftService>();

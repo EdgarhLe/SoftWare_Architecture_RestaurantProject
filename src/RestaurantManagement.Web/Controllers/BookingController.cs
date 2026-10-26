@@ -11,15 +11,18 @@ public class BookingController : Controller
 {
     private readonly IBookingService _bookingService;
     private readonly ITableService _tableService;
+    private readonly IEmailService _emailService;
     private readonly ILogger<BookingController> _logger;
 
     public BookingController(
         IBookingService bookingService,
         ITableService tableService,
+        IEmailService emailService,
         ILogger<BookingController> logger)
     {
         _bookingService = bookingService;
         _tableService = tableService;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -197,7 +200,7 @@ public class BookingController : Controller
             return RedirectToAction(nameof(Payment), new { bookingId });
         }
 
-        TempData["SuccessMessage"] = $"Thanh toán cọc thành công! Bàn của quý khách đã được xác nhận (Mã đặt bàn: {result.Value.BookingCode}).";
+        TempData["SuccessMessage"] = $"Thanh toán cọc thành công! Bàn của quý khách đã được xác nhận (Mã đặt bàn: {result.Value.BookingCode}). Vé điện tử và mã QR đã được gửi về email của quý khách.";
         return RedirectToAction(nameof(Lookup), new { bookingCode = result.Value.BookingCode, phoneNumber = result.Value.PhoneNumber });
     }
 
@@ -269,7 +272,37 @@ public class BookingController : Controller
         }
 
         var cancelInfo = result.Value;
-        TempData["SuccessMessage"] = $"Đã hủy đặt bàn {cancelInfo.BookingCode}. Tiền cọc: {cancelInfo.DepositAmount:N0}đ, Tỷ lệ hoàn: {cancelInfo.RefundRate * 100}%, Số tiền hoàn: {cancelInfo.RefundAmount:N0}đ ({cancelInfo.Explanation}).";
+        TempData["SuccessMessage"] = $"Đã hủy đặt bàn {cancelInfo.BookingCode}. Tiền cọc: {cancelInfo.DepositAmount:N0}đ, Tỷ lệ hoàn: {cancelInfo.RefundRate * 100}%, Số tiền hoàn: {cancelInfo.RefundAmount:N0}đ ({cancelInfo.Explanation}). Thông báo đã được gửi về email của quý khách.";
+
+        return RedirectToAction(nameof(Lookup), new { bookingCode, phoneNumber });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendTicketEmail(string bookingCode, string phoneNumber, string recipientEmail)
+    {
+        if (string.IsNullOrWhiteSpace(recipientEmail))
+        {
+            TempData["ErrorMessage"] = "Vui lòng nhập địa chỉ email hợp lệ.";
+            return RedirectToAction(nameof(Lookup), new { bookingCode, phoneNumber });
+        }
+
+        var result = await _bookingService.GetBookingByCodeAsync(bookingCode.Trim(), phoneNumber.Trim());
+        if (!result.IsSuccess)
+        {
+            TempData["ErrorMessage"] = "Không tìm thấy thông tin đặt bàn.";
+            return RedirectToAction(nameof(Lookup), new { bookingCode, phoneNumber });
+        }
+
+        var sendSuccess = await _emailService.SendBookingConfirmationEmailAsync(result.Value, recipientEmail.Trim());
+        if (sendSuccess)
+        {
+            TempData["SuccessMessage"] = $"Đã gửi vé điện tử xác nhận đặt bàn tới {recipientEmail}.";
+        }
+        else
+        {
+            TempData["SuccessMessage"] = $"Đã tạo và lưu email xem trước tại thư mục 'SentEmails' (chế độ Test/Local).";
+        }
 
         return RedirectToAction(nameof(Lookup), new { bookingCode, phoneNumber });
     }
