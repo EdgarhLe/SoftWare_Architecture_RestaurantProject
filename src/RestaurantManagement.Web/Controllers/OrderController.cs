@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RestaurantManagement.Business.DTOs;
 using RestaurantManagement.Business.Services;
+using RestaurantManagement.Common.Enums;
 using RestaurantManagement.Web.Models;
 
 namespace RestaurantManagement.Web.Controllers;
@@ -116,12 +117,35 @@ public class OrderController : Controller
         var result = await _orderService.SendToKitchenAsync(orderId);
         if (!result.IsSuccess)
         {
-            TempData["ErrorMessage"] = result.Error?.Description ?? "Không thể gửi order xuống bếp.";
+            TempData["ErrorMessage"] = result.Error?.Description ?? "Không thể gửi order đi chế biến.";
         }
         else
         {
             var ticketCount = result.Value.TicketCodes.Count;
-            TempData["SuccessMessage"] = $"Đã in & gửi thành công {result.Value.ItemCount} món tới {ticketCount} trạm bếp (KOT: {string.Join(", ", result.Value.TicketCodes)}).";
+            TempData["SuccessMessage"] = $"Đã in phiếu KOT thành công {result.Value.ItemCount} món tới {ticketCount} trạm chế biến (KOT: {string.Join(", ", result.Value.TicketCodes)}).";
+        }
+
+        var orderResult = await _orderService.GetOrderByIdAsync(orderId);
+        if (orderResult.IsSuccess)
+        {
+            return RedirectToAction(nameof(Table), new { tableId = orderResult.Value.TableId });
+        }
+
+        return RedirectToAction("Index", "Floor");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkItemServed(int orderDetailId, int orderId)
+    {
+        var result = await _orderService.UpdateItemStatusAsync(orderDetailId, OrderItemStatus.Served);
+        if (!result.IsSuccess)
+        {
+            TempData["ErrorMessage"] = result.Error?.Description ?? "Không thể cập nhật trạng thái món.";
+        }
+        else
+        {
+            TempData["SuccessMessage"] = "Đã cập nhật trạng thái món: Đã lên bàn phục vụ.";
         }
 
         var orderResult = await _orderService.GetOrderByIdAsync(orderId);

@@ -20,13 +20,10 @@ public class KitchenController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index(KitchenStation? station = null)
+    public IActionResult Index(KitchenStation? station = null)
     {
-        var orders = await _orderService.GetActiveOrdersAsync();
-
-        // Filter items by station if chosen
-        ViewBag.SelectedStation = station;
-        return View(orders);
+        // Hệ thống không sử dụng đối tượng đầu bếp - chuyển hướng về sơ đồ bàn vận hành
+        return RedirectToAction("Index", "Floor");
     }
 
     [HttpPost]

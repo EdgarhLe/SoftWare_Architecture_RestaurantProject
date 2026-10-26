@@ -37,6 +37,7 @@ public class DatabaseSeedAndIntegrationTests
             .Build();
 
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddBusinessLayer(configuration);
 
         _serviceProvider = services.BuildServiceProvider();

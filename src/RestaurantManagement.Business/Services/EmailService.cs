@@ -17,10 +17,10 @@ public class EmailService : IEmailService
     public EmailService(
         IOptions<EmailOptions> emailOptions,
         IOptions<RestaurantRulesOptions> rulesOptions,
-        ILogger<EmailService> logger)
+        ILogger<EmailService>? logger = null)
     {
         _options = emailOptions.Value;
-        _logger = logger;
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<EmailService>.Instance;
 
         var tzName = rulesOptions.Value?.TimeZone ?? "SE Asia Standard Time";
         try
