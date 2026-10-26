@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using RestaurantManagement.Business.DTOs;
+using RestaurantManagement.Business.Options;
 using RestaurantManagement.Common.Enums;
 using RestaurantManagement.Common.Results;
 using RestaurantManagement.DataAccess.Entities;
@@ -9,7 +11,7 @@ namespace RestaurantManagement.Business.Services;
 
 public interface ITableService
 {
-    Task<List<AreaWithTablesDto>> GetFloorPlanAsync(CancellationToken cancellationToken = default);
+    Task<List<AreaWithTablesDto>> GetFloorPlanAsync(DateOnly? date = null, CancellationToken cancellationToken = default);
     Task<Result<TableDto>> GetTableByIdAsync(int tableId, CancellationToken cancellationToken = default);
     Task<Result<OrderDto>> SeatWalkInAsync(SeatWalkInDto dto, CancellationToken cancellationToken = default);
     Task<Result<OrderDto>> CheckInBookingAsync(CheckInBookingDto dto, CancellationToken cancellationToken = default);
@@ -20,13 +22,23 @@ public interface ITableService
 public class TableService : ITableService
 {
     private readonly IUnitOfWork _uow;
+    private readonly TimeZoneInfo _timeZone;
 
-    public TableService(IUnitOfWork uow)
+    public TableService(IUnitOfWork uow, IOptions<RestaurantRulesOptions>? options = null)
     {
         _uow = uow;
+        var tzName = options?.Value?.TimeZone ?? "SE Asia Standard Time";
+        try
+        {
+            _timeZone = TimeZoneInfo.FindSystemTimeZoneById(tzName);
+        }
+        catch
+        {
+            _timeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
     }
 
-    public async Task<List<AreaWithTablesDto>> GetFloorPlanAsync(CancellationToken cancellationToken = default)
+    public async Task<List<AreaWithTablesDto>> GetFloorPlanAsync(DateOnly? date = null, CancellationToken cancellationToken = default)
     {
         var areas = await _uow.Areas.GetAll()
             .OrderBy(a => a.DisplayOrder)
@@ -34,18 +46,37 @@ public class TableService : ITableService
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
-        // Lấy thông tin order đang active (chưa đóng) cho các bàn
-        var activeOrders = await _uow.Orders.GetAll()
-            .Where(o => o.ClosedAt == null)
-            .AsNoTracking()
-            .ToDictionaryAsync(o => o.TableId, o => o, cancellationToken);
+        var localNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _timeZone);
+        var today = DateOnly.FromDateTime(localNow);
+        var targetDate = date ?? today;
+        var isToday = targetDate == today;
 
-        // Lấy thông tin booking hôm nay
-        var today = DateTime.UtcNow.Date;
-        var activeBookings = await _uow.Bookings.GetAll()
-            .Where(b => b.Status == BookingStatus.Confirmed && b.StartTime >= today && b.StartTime < today.AddDays(1))
+        // Lấy thông tin order đang active (chưa đóng) cho các bàn (chỉ có ý nghĩa khi xem ngày hôm nay)
+        var activeOrders = isToday
+            ? await _uow.Orders.GetAll()
+                .Where(o => o.ClosedAt == null)
+                .AsNoTracking()
+                .ToDictionaryAsync(o => o.TableId, o => o, cancellationToken)
+            : new Dictionary<int, Order>();
+
+        // Lấy thông tin booking của ngày targetDate
+        var startLocal = targetDate.ToDateTime(TimeOnly.MinValue);
+        var endLocal = targetDate.AddDays(1).ToDateTime(TimeOnly.MinValue);
+        var startUtc = TimeZoneInfo.ConvertTimeToUtc(startLocal, _timeZone);
+        var endUtc = TimeZoneInfo.ConvertTimeToUtc(endLocal, _timeZone);
+
+        var bookingsList = await _uow.Bookings.GetAll()
+            .Where(b => (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.CheckedIn) && b.StartTime >= startUtc && b.StartTime < endUtc)
+            .OrderBy(b => b.StartTime)
             .AsNoTracking()
-            .ToDictionaryAsync(b => b.TableId, b => b.CustomerName, cancellationToken);
+            .ToListAsync(cancellationToken);
+
+        var activeBookings = bookingsList
+            .GroupBy(b => b.TableId)
+            .ToDictionary(
+                g => g.Key,
+                g => string.Join(", ", g.Select(b => $"{TimeZoneInfo.ConvertTimeFromUtc(b.StartTime, _timeZone):HH:mm} {b.CustomerName}"))
+            );
 
         return areas.Select(area => new AreaWithTablesDto(
             area.Id,
@@ -56,13 +87,16 @@ public class TableService : ITableService
                 activeOrders.TryGetValue(table.Id, out var ord);
                 activeBookings.TryGetValue(table.Id, out var customerName);
 
+                // Nếu xem ngày tương lai: trạng thái thực tế không phải là Occupied/Cleaning của ngày hôm nay
+                var status = isToday ? table.Status : TableStatus.Available;
+
                 return new TableDto(
                     table.Id,
                     table.TableNumber,
                     table.AreaId,
                     area.AreaName,
                     table.Capacity,
-                    table.Status,
+                    status,
                     ord?.OrderCode,
                     ord?.GuestCount,
                     customerName

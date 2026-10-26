@@ -23,6 +23,8 @@ public class FloorIndexViewModel
     public List<AreaWithTablesDto> FloorPlan { get; set; } = new();
     public List<BookingConfirmationDto> TodayBookings { get; set; } = new();
     public int? SelectedAreaId { get; set; }
+    public DateOnly SelectedDate { get; set; }
+    public bool IsToday => SelectedDate == DateOnly.FromDateTime(DateTime.Now);
 }
 
 public class SeatWalkInViewModel

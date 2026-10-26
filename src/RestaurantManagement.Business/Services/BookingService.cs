@@ -19,6 +19,7 @@ public interface IBookingService
     Task<Result<BookingConfirmationDto>> GetBookingByCodeAsync(string bookingCode, string phoneNumber, CancellationToken cancellationToken = default);
     Task<Result<CancelBookingResultDto>> CancelBookingAsync(CancelBookingDto dto, CancellationToken cancellationToken = default);
     Task<List<BookingConfirmationDto>> GetTodayBookingsAsync(CancellationToken cancellationToken = default);
+    Task<List<BookingConfirmationDto>> GetBookingsByDateAsync(DateOnly date, CancellationToken cancellationToken = default);
 }
 
 public class BookingService : IBookingService
@@ -394,15 +395,24 @@ public class BookingService : IBookingService
         }, cancellationToken);
     }
 
-    public async Task<List<BookingConfirmationDto>> GetTodayBookingsAsync(CancellationToken cancellationToken = default)
+    public Task<List<BookingConfirmationDto>> GetTodayBookingsAsync(CancellationToken cancellationToken = default)
     {
-        var today = DateTime.UtcNow.Date;
-        var tomorrow = today.AddDays(1);
+        var localNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _timeZone);
+        return GetBookingsByDateAsync(DateOnly.FromDateTime(localNow), cancellationToken);
+    }
+
+    public async Task<List<BookingConfirmationDto>> GetBookingsByDateAsync(DateOnly date, CancellationToken cancellationToken = default)
+    {
+        var startLocal = date.ToDateTime(TimeOnly.MinValue);
+        var endLocal = date.AddDays(1).ToDateTime(TimeOnly.MinValue);
+
+        var startUtc = TimeZoneInfo.ConvertTimeToUtc(startLocal, _timeZone);
+        var endUtc = TimeZoneInfo.ConvertTimeToUtc(endLocal, _timeZone);
 
         var bookings = await _uow.Bookings.GetAll()
             .Include(b => b.Table)
                 .ThenInclude(t => t.Area)
-            .Where(b => b.StartTime >= today && b.StartTime < tomorrow)
+            .Where(b => b.StartTime >= startUtc && b.StartTime < endUtc)
             .OrderBy(b => b.StartTime)
             .AsNoTracking()
             .ToListAsync(cancellationToken);

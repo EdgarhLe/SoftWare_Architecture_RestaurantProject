@@ -25,16 +25,18 @@ public class FloorController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index(int? areaId = null)
+    public async Task<IActionResult> Index(int? areaId = null, DateOnly? date = null)
     {
-        var floorPlan = await _tableService.GetFloorPlanAsync();
-        var todayBookings = await _bookingService.GetTodayBookingsAsync();
+        var targetDate = date ?? DateOnly.FromDateTime(DateTime.Now);
+        var floorPlan = await _tableService.GetFloorPlanAsync(targetDate);
+        var bookings = await _bookingService.GetBookingsByDateAsync(targetDate);
 
         var viewModel = new FloorIndexViewModel
         {
             FloorPlan = floorPlan,
-            TodayBookings = todayBookings,
-            SelectedAreaId = areaId
+            TodayBookings = bookings,
+            SelectedAreaId = areaId,
+            SelectedDate = targetDate
         };
 
         return View(viewModel);

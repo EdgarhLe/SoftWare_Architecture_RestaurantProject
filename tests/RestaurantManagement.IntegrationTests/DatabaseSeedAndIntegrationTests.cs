@@ -114,6 +114,14 @@ public class DatabaseSeedAndIntegrationTests
         Assert.True(paymentConfirmResult.IsSuccess);
         Assert.Equal(BookingStatus.Confirmed, paymentConfirmResult.Value.Status);
 
+        // Kiểm tra xem lịch đặt bàn ngày mai (những ngày sau)
+        var tomorrowBookings = await bookingService.GetBookingsByDateAsync(tomorrow);
+        Assert.Contains(tomorrowBookings, b => b.BookingId == booking.BookingId);
+
+        var futureFloorPlan = await tableService.GetFloorPlanAsync(tomorrow);
+        var bookedTableInFuture = futureFloorPlan.SelectMany(a => a.Tables).First(t => t.Id == chosenTable.TableId);
+        Assert.NotNull(bookedTableInFuture.BookingCustomer);
+
         // 6. Đến ngày giờ hẹn, Phục vụ xác nhận khách vào bàn (BM03)
         var waiter = await dbContext.Staffs.FirstAsync(s => s.Role == StaffRole.Staff);
         var checkInResult = await tableService.CheckInBookingAsync(new CheckInBookingDto(
