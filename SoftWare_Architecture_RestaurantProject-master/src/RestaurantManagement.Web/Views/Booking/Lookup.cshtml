@@ -45,14 +45,14 @@
                         <span class="text-muted small">Thời gian tạo: @b.BookingDateTimeUtc.ToLocalTime().ToString("HH:mm:ss dd/MM/yyyy")</span>
                     </div>
                     <span class="badge @(b.Status == BookingStatus.Confirmed ? "bg-success fs-6" : b.Status == BookingStatus.Cancelled ? "bg-danger fs-6" : "bg-warning text-dark fs-6")">
-                        @b.Status switch
+                        @(b.Status switch
                         {
                             BookingStatus.Confirmed => "Đã xác nhận cọc",
                             BookingStatus.CheckedIn => "Đang dùng bữa tại nhà hàng",
                             BookingStatus.Cancelled => "Đã hủy đặt bàn",
                             BookingStatus.PendingPayment => "Chờ thanh toán cọc",
                             _ => b.Status.ToString()
-                        }
+                        })
                     </span>
                 </div>
 

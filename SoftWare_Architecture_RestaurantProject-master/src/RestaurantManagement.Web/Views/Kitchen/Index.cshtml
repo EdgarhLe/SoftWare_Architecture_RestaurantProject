@@ -83,13 +83,13 @@ else
                                 <div class="d-flex justify-content-between align-items-start mb-1">
                                     <span class="fw-bold fs-6 text-dark">@item.Quantity x @item.ItemName</span>
                                     <span class="badge @(item.Status == OrderItemStatus.Cooking ? "bg-warning text-dark" : item.Status == OrderItemStatus.Ready ? "bg-success" : "bg-secondary")">
-                                        @item.Status switch
+                                        @(item.Status switch
                                         {
                                             OrderItemStatus.Pending => "Chờ nấu",
                                             OrderItemStatus.Cooking => "Đang nấu",
                                             OrderItemStatus.Ready => "Đã xong",
                                             _ => item.Status.ToString()
-                                        }
+                                        })
                                     </span>
                                 </div>
 

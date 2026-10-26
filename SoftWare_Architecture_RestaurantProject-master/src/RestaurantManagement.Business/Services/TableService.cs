@@ -34,18 +34,28 @@ public class TableService : ITableService
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
-        // Lấy thông tin order đang active (chưa đóng) cho các bàn
+        // Lấy thông tin order đang active (chưa đóng) cho các bàn.
+        // Một bàn có thể có nhiều order đang mở theo dữ liệu/seed cũ, nên phải chọn order gần nhất thay vì ném exception.
         var activeOrders = await _uow.Orders.GetAll()
             .Where(o => o.ClosedAt == null)
             .AsNoTracking()
-            .ToDictionaryAsync(o => o.TableId, o => o, cancellationToken);
+            .ToListAsync(cancellationToken);
 
-        // Lấy thông tin booking hôm nay
+        var activeOrderByTable = activeOrders
+            .GroupBy(o => o.TableId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(o => o.CreatedAt).First());
+
+        // Lấy thông tin booking hôm nay.
+        // Tương tự, một bàn có thể có nhiều booking đã xác nhận trong cùng ngày; lấy booking mới nhất.
         var today = DateTime.UtcNow.Date;
         var activeBookings = await _uow.Bookings.GetAll()
             .Where(b => b.Status == BookingStatus.Confirmed && b.StartTime >= today && b.StartTime < today.AddDays(1))
             .AsNoTracking()
-            .ToDictionaryAsync(b => b.TableId, b => b.CustomerName, cancellationToken);
+            .ToListAsync(cancellationToken);
+
+        var activeBookingCustomerByTable = activeBookings
+            .GroupBy(b => b.TableId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(b => b.StartTime).ThenByDescending(b => b.CreatedAt).First().CustomerName);
 
         return areas.Select(area => new AreaWithTablesDto(
             area.Id,
@@ -53,8 +63,8 @@ public class TableService : ITableService
             area.Description,
             area.Tables.OrderBy(t => t.TableNumber).Select(table =>
             {
-                activeOrders.TryGetValue(table.Id, out var ord);
-                activeBookings.TryGetValue(table.Id, out var customerName);
+                activeOrderByTable.TryGetValue(table.Id, out var ord);
+                activeBookingCustomerByTable.TryGetValue(table.Id, out var customerName);
 
                 return new TableDto(
                     table.Id,
