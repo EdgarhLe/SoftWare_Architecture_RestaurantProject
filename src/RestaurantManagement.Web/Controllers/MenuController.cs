@@ -142,6 +142,16 @@ public class MenuController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdatePrice(UpdatePriceViewModel model)
     {
+        if (!ModelState.IsValid)
+        {
+            var errors = ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .Where(m => !string.IsNullOrWhiteSpace(m));
+            TempData["ErrorMessage"] = string.Join(" ", errors);
+            return RedirectToAction(nameof(Index));
+        }
+
         var result = await _menuService.UpdateItemPriceAsync(new UpdateItemPriceDto(
             model.MenuItemId,
             model.NewPrice,

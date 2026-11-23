@@ -48,7 +48,11 @@ public class FloorController : Controller
     {
         if (!ModelState.IsValid)
         {
-            TempData["ErrorMessage"] = "Thông tin xếp bàn không hợp lệ.";
+            var errors = ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .Where(m => !string.IsNullOrWhiteSpace(m));
+            TempData["ErrorMessage"] = string.Join(" ", errors);
             return RedirectToAction(nameof(Index));
         }
 

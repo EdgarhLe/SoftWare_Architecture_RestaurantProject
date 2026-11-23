@@ -105,8 +105,11 @@ public class MenuService : IMenuService
 
     public async Task<Result<MenuItemDto>> CreateMenuItemAsync(CreateMenuItemDto dto, CancellationToken cancellationToken = default)
     {
-        if (dto.Price <= 0)
-            return Result<MenuItemDto>.Failure(Error.Validation("MenuItem.InvalidPrice", "Đơn giá món phải lớn hơn 0đ."));
+        if (string.IsNullOrWhiteSpace(dto.ItemCode) || string.IsNullOrWhiteSpace(dto.ItemName))
+            return Result<MenuItemDto>.Failure(Error.Validation("MenuItem.Required", "Mã món và tên món không được để trống."));
+
+        if (dto.Price < 1000 || dto.Price > 100_000_000)
+            return Result<MenuItemDto>.Failure(Error.Validation("MenuItem.InvalidPrice", "Đơn giá món phải từ 1.000đ đến 100.000.000đ."));
 
         var codeExists = await _uow.MenuItems.GetAll().AnyAsync(m => m.ItemCode == dto.ItemCode.Trim(), cancellationToken);
         if (codeExists)
@@ -158,8 +161,11 @@ public class MenuService : IMenuService
         if (item == null)
             return Result<MenuItemDto>.Failure(Error.NotFound("MenuItem.NotFound", "Không tìm thấy món ăn."));
 
-        if (dto.Price <= 0)
-            return Result<MenuItemDto>.Failure(Error.Validation("MenuItem.InvalidPrice", "Đơn giá món phải lớn hơn 0đ."));
+        if (string.IsNullOrWhiteSpace(dto.ItemName))
+            return Result<MenuItemDto>.Failure(Error.Validation("MenuItem.Required", "Tên món không được để trống."));
+
+        if (dto.Price < 1000 || dto.Price > 100_000_000)
+            return Result<MenuItemDto>.Failure(Error.Validation("MenuItem.InvalidPrice", "Đơn giá món phải từ 1.000đ đến 100.000.000đ."));
 
         var nameExists = await _uow.MenuItems.GetAll().AnyAsync(m => m.ItemName == dto.ItemName.Trim() && m.Id != dto.Id, cancellationToken);
         if (nameExists)
@@ -225,8 +231,8 @@ public class MenuService : IMenuService
         if (item == null)
             return Result.Failure(Error.NotFound("MenuItem.NotFound", "Không tìm thấy món ăn."));
 
-        if (dto.NewPrice <= 0)
-            return Result.Failure(Error.Validation("MenuItem.InvalidPrice", "Giá niêm yết mới phải lớn hơn 0đ."));
+        if (dto.NewPrice < 1000 || dto.NewPrice > 100_000_000)
+            return Result.Failure(Error.Validation("MenuItem.InvalidPrice", "Giá niêm yết mới phải từ 1.000đ đến 100.000.000đ."));
 
         var isPinValid = await ValidateManagerPinAsync(dto.ManagerPin, cancellationToken);
         if (!isPinValid)

@@ -52,21 +52,28 @@ public class TableService : ITableService
         var isToday = targetDate == today;
 
         // Lấy thông tin order đang active (chưa đóng) cho các bàn (chỉ có ý nghĩa khi xem ngày hôm nay)
-        var activeOrders = isToday
+        var activeOrdersList = isToday
             ? await _uow.Orders.GetAll()
                 .Where(o => o.ClosedAt == null)
+                .OrderByDescending(o => o.CreatedAt)
                 .AsNoTracking()
-                .ToDictionaryAsync(o => o.TableId, o => o, cancellationToken)
-            : new Dictionary<int, Order>();
+                .ToListAsync(cancellationToken)
+            : new List<Order>();
+
+        var activeOrders = activeOrdersList
+            .GroupBy(o => o.TableId)
+            .ToDictionary(g => g.Key, g => g.First());
 
         // Lấy thông tin booking của ngày targetDate
         var startLocal = targetDate.ToDateTime(TimeOnly.MinValue);
         var endLocal = targetDate.AddDays(1).ToDateTime(TimeOnly.MinValue);
         var startUtc = TimeZoneInfo.ConvertTimeToUtc(startLocal, _timeZone);
         var endUtc = TimeZoneInfo.ConvertTimeToUtc(endLocal, _timeZone);
+        var nowUtc = DateTime.UtcNow;
 
         var bookingsList = await _uow.Bookings.GetAll()
-            .Where(b => (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.CheckedIn) && b.StartTime >= startUtc && b.StartTime < endUtc)
+            .Where(b => (b.Status == BookingStatus.Confirmed || (b.Status == BookingStatus.PendingPayment && b.HoldExpiresAt > nowUtc))
+                     && b.StartTime >= startUtc && b.StartTime < endUtc)
             .OrderBy(b => b.StartTime)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
@@ -75,7 +82,7 @@ public class TableService : ITableService
             .GroupBy(b => b.TableId)
             .ToDictionary(
                 g => g.Key,
-                g => string.Join(", ", g.Select(b => $"{TimeZoneInfo.ConvertTimeFromUtc(b.StartTime, _timeZone):HH:mm} {b.CustomerName}"))
+                g => g.First()
             );
 
         return areas.Select(area => new AreaWithTablesDto(
@@ -85,10 +92,23 @@ public class TableService : ITableService
             area.Tables.OrderBy(t => t.TableNumber).Select(table =>
             {
                 activeOrders.TryGetValue(table.Id, out var ord);
-                activeBookings.TryGetValue(table.Id, out var customerName);
+                activeBookings.TryGetValue(table.Id, out var upcomingBooking);
 
                 // Nếu xem ngày tương lai: trạng thái thực tế không phải là Occupied/Cleaning của ngày hôm nay
                 var status = isToday ? table.Status : TableStatus.Available;
+
+                string? customerName = null;
+                int? activeBookingId = null;
+                BookingStatus? bookingStatus = null;
+
+                if (upcomingBooking != null)
+                {
+                    var localTimeStr = TimeZoneInfo.ConvertTimeFromUtc(upcomingBooking.StartTime, _timeZone).ToString("HH:mm");
+                    var tag = upcomingBooking.Status == BookingStatus.PendingPayment ? " (Chờ cọc)" : "";
+                    customerName = $"{localTimeStr} {upcomingBooking.CustomerName}{tag}";
+                    activeBookingId = upcomingBooking.Id;
+                    bookingStatus = upcomingBooking.Status;
+                }
 
                 return new TableDto(
                     table.Id,
@@ -99,7 +119,9 @@ public class TableService : ITableService
                     status,
                     ord?.OrderCode,
                     ord?.GuestCount,
-                    customerName
+                    customerName,
+                    activeBookingId,
+                    bookingStatus
                 );
             }).ToList()
         )).ToList();
@@ -134,6 +156,9 @@ public class TableService : ITableService
 
     public async Task<Result<OrderDto>> SeatWalkInAsync(SeatWalkInDto dto, CancellationToken cancellationToken = default)
     {
+        if (dto.GuestCount < 1 || dto.GuestCount > 50)
+            return Result<OrderDto>.Failure(Error.Validation("Table.InvalidGuests", "Số lượng khách phải từ 1 đến 50 người."));
+
         var table = await _uow.Tables.GetByIdAsync(dto.TableId, cancellationToken);
         if (table == null)
             return Result<OrderDto>.Failure(Error.NotFound("Table.NotFound", "Không tìm thấy bàn yêu cầu."));
@@ -143,6 +168,22 @@ public class TableService : ITableService
 
         if (dto.GuestCount > table.Capacity)
             return Result<OrderDto>.Failure(Error.Validation("Table.OverCapacity", $"Số lượng khách ({dto.GuestCount}) vượt quá sức chứa bàn {table.TableNumber} ({table.Capacity} chỗ)."));
+
+        var nowUtc = DateTime.UtcNow;
+        var upcomingBooking = await _uow.Bookings.GetAll()
+            .Where(b => b.TableId == dto.TableId
+                     && (b.Status == BookingStatus.Confirmed || (b.Status == BookingStatus.PendingPayment && b.HoldExpiresAt > nowUtc))
+                     && b.StartTime >= nowUtc.AddMinutes(-30)
+                     && b.StartTime <= nowUtc.AddHours(2))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (upcomingBooking != null)
+        {
+            var localTime = TimeZoneInfo.ConvertTimeFromUtc(upcomingBooking.StartTime, _timeZone);
+            return Result<OrderDto>.Failure(Error.Validation(
+                "Table.HasUpcomingBooking",
+                $"Bàn {table.TableNumber} đã được đặt trước lúc {localTime:HH:mm} bởi khách {upcomingBooking.CustomerName}. Vui lòng chọn bàn khác cho khách vãng lai hoặc xác nhận khách đặt bàn."));
+        }
 
         var staff = await _uow.Staffs.GetByIdAsync(dto.StaffId, cancellationToken);
         if (staff == null)

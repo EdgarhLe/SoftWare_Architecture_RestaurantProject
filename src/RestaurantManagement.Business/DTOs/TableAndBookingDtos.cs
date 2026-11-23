@@ -11,7 +11,9 @@ public record TableDto(
     TableStatus Status,
     string? CurrentOrderCode = null,
     int? CurrentGuests = null,
-    string? BookingCustomer = null
+    string? BookingCustomer = null,
+    int? ActiveBookingId = null,
+    BookingStatus? BookingStatus = null
 );
 
 public record AreaWithTablesDto(
@@ -58,7 +60,8 @@ public record BookingConfirmationDto(
     int GuestCount,
     decimal DepositAmount,
     BookingStatus Status,
-    DateTime ExpiresAtUtc
+    DateTime ExpiresAtUtc,
+    string? Email = null
 );
 
 public record CancelBookingDto(

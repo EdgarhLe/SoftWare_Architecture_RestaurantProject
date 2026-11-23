@@ -3,10 +3,10 @@
     ViewData["Title"] = "Sơ đồ bàn & Trạng thái phục vụ (BM03)";
     var allTables = Model.FloorPlan.SelectMany(a => a.Tables).ToList();
     var totalTables = allTables.Count;
-    var availableCount = allTables.Count(t => t.Status == TableStatus.Available && string.IsNullOrEmpty(t.BookingCustomer));
     var occupiedCount = allTables.Count(t => t.Status == TableStatus.Occupied || t.Status == TableStatus.PreCheck);
-    var reservedCount = allTables.Count(t => !string.IsNullOrEmpty(t.BookingCustomer));
+    var reservedCount = allTables.Count(t => t.Status == TableStatus.Available && !string.IsNullOrEmpty(t.BookingCustomer));
     var cleaningCount = allTables.Count(t => t.Status == TableStatus.Cleaning);
+    var availableCount = allTables.Count(t => t.Status == TableStatus.Available && string.IsNullOrEmpty(t.BookingCustomer));
 }
 
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
@@ -181,10 +181,13 @@
         <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3">
             @foreach (var table in area.Tables)
             {
-                var isReserved = !string.IsNullOrEmpty(table.BookingCustomer);
+                var isOccupiedOrPreCheck = table.Status == TableStatus.Occupied || table.Status == TableStatus.PreCheck;
+                var isCleaning = table.Status == TableStatus.Cleaning;
+                var isReserved = table.Status == TableStatus.Available && !string.IsNullOrEmpty(table.BookingCustomer);
+
                 var statusClass = isReserved ? "table-status-Reserved" : $"table-status-{table.Status}";
                 var statusBadgeClass = isReserved ? "badge-status-Reserved" : $"badge-status-{table.Status}";
-                var statusTitle = isReserved ? "Đã đặt" : table.Status switch
+                var statusTitle = isReserved ? (table.BookingStatus == BookingStatus.PendingPayment ? "Chờ cọc" : "Đã đặt") : table.Status switch
                 {
                     TableStatus.Available => "Trống",
                     TableStatus.Occupied => "Có khách",
@@ -204,15 +207,21 @@
 
                         <div class="small mb-3">
                             <div class="text-muted"><i class="bi bi-people me-1"></i>Sức chứa: <strong>@table.Capacity khách</strong></div>
-                            @if (table.Status == TableStatus.Occupied || table.Status == TableStatus.PreCheck)
+                            @if (isOccupiedOrPreCheck)
                             {
                                 <div class="text-danger fw-semibold mt-1">
                                     <i class="bi bi-receipt me-1"></i>@table.CurrentOrderCode
                                 </div>
+                                @if (!string.IsNullOrEmpty(table.BookingCustomer))
+                                {
+                                    <div class="text-muted small mt-1 text-truncate" title="@table.BookingCustomer">
+                                        <i class="bi bi-person me-1"></i>@table.BookingCustomer
+                                    </div>
+                                }
                             }
                             else if (isReserved)
                             {
-                                <div class="text-primary fw-semibold mt-1 text-truncate">
+                                <div class="text-primary fw-semibold mt-1 text-truncate" title="@table.BookingCustomer">
                                     <i class="bi bi-person me-1"></i>@table.BookingCustomer
                                 </div>
                             }
@@ -220,13 +229,34 @@
 
                         <!-- Action Buttons on Card -->
                         <div class="mt-auto pt-2 border-top border-black border-opacity-10 d-flex flex-column gap-1">
-                            @if (isReserved)
+                            @if (isOccupiedOrPreCheck)
+                            {
+                                <a asp-controller="Order" asp-action="Table" asp-route-tableId="@table.Id" class="btn btn-sm btn-danger w-100 fw-semibold">
+                                    <i class="bi bi-card-checklist me-1"></i> Gọi món (BM01)
+                                </a>
+                            }
+                            else if (isReserved)
                             {
                                 @if (Model.IsToday)
                                 {
-                                    <button type="button" class="btn btn-sm btn-primary w-100 fw-semibold" onclick="openCheckInForTable(@table.Id, '@table.TableNumber')">
-                                        <i class="bi bi-check2-circle me-1"></i> Nhận bàn khách đặt
-                                    </button>
+                                    @if (table.ActiveBookingId.HasValue && table.BookingStatus == BookingStatus.Confirmed)
+                                    {
+                                        <form asp-action="CheckInBooking" method="post" class="w-100">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="BookingId" value="@table.ActiveBookingId.Value" />
+                                            <input type="hidden" name="TableCode" value="@table.TableNumber" />
+                                            <input type="hidden" name="CustomerName" value="@table.BookingCustomer" />
+                                            <button type="submit" class="btn btn-sm btn-primary w-100 fw-semibold">
+                                                <i class="bi bi-check2-circle me-1"></i> Nhận bàn khách đặt
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-warning text-dark w-100 fw-semibold" disabled>
+                                            <i class="bi bi-hourglass-split me-1"></i> Chờ khách cọc
+                                        </button>
+                                    }
                                 }
                                 else
                                 {
@@ -250,13 +280,7 @@
                                     </a>
                                 }
                             }
-                            else if (table.Status == TableStatus.Occupied || table.Status == TableStatus.PreCheck)
-                            {
-                                <a asp-controller="Order" asp-action="Table" asp-route-tableId="@table.Id" class="btn btn-sm btn-danger w-100 fw-semibold">
-                                    <i class="bi bi-card-checklist me-1"></i> Gọi món (BM01)
-                                </a>
-                            }
-                            else if (table.Status == TableStatus.Cleaning)
+                            else if (isCleaning)
                             {
                                 <form asp-action="CompleteCleaning" method="post" class="w-100">
                                     @Html.AntiForgeryToken()
@@ -391,12 +415,12 @@
 
                     <div class="mb-3">
                         <label class="form-label fw-semibold small">Tên khách hàng (tùy chọn)</label>
-                        <input type="text" name="CustomerName" class="form-control" placeholder="Khách vãng lai..." />
+                        <input type="text" name="CustomerName" class="form-control" minlength="2" maxlength="100" placeholder="Khách vãng lai..." />
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label fw-semibold small">Số điện thoại (tùy chọn, để tích điểm)</label>
-                        <input type="text" name="PhoneNumber" class="form-control" placeholder="09xxxxxxxx..." />
+                        <input type="tel" name="PhoneNumber" class="form-control" maxlength="12" pattern="@RestaurantManagement.Common.Validation.ValidationRules.PhoneHtmlPattern" title="@RestaurantManagement.Common.Validation.ValidationRules.PhoneErrorMessage" placeholder="0912345678..." />
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
@@ -418,7 +442,9 @@
             document.getElementById('walkInCapacity').value = capacity;
             document.getElementById('walkInDisplayCode').textContent = tableCode;
             document.getElementById('walkInDisplayCap').textContent = capacity;
-            document.getElementById('walkInGuestCount').value = capacity > 2 ? 4 : 2;
+            const guestInput = document.getElementById('walkInGuestCount');
+            guestInput.max = capacity;
+            guestInput.value = Math.min(capacity, capacity > 2 ? 4 : 2);
 
             const modal = new bootstrap.Modal(document.getElementById('walkInModal'));
             modal.show();

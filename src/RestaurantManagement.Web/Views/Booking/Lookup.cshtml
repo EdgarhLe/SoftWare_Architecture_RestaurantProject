@@ -22,7 +22,7 @@
 
                     <div class="col-md-4">
                         <label asp-for="PhoneNumber" class="form-label small fw-semibold">Số điện thoại *</label>
-                        <input asp-for="PhoneNumber" class="form-control" placeholder="09xxxxxxxx" required />
+                        <input asp-for="PhoneNumber" type="tel" class="form-control" maxlength="12" pattern="@RestaurantManagement.Common.Validation.ValidationRules.PhoneHtmlPattern" title="@RestaurantManagement.Common.Validation.ValidationRules.PhoneErrorMessage" placeholder="0912345678" required />
                     </div>
 
                     <div class="col-md-3">
@@ -87,23 +87,24 @@
                 <!-- Cancellation Policy & Actions -->
                 @if (b.Status == BookingStatus.Confirmed)
                 {
-                    <!-- Send Email Ticket Box -->
-                    <div class="card p-3 bg-light border rounded-3 mb-4">
-                        <label class="form-label small fw-bold text-dark mb-1">
-                            <i class="bi bi-envelope-paper me-1 text-primary"></i> Nhận vé điện tử &amp; Mã QR qua Email:
-                        </label>
-                        <form asp-action="SendTicketEmail" method="post" class="d-flex flex-wrap gap-2">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="bookingCode" value="@b.BookingCode" />
-                            <input type="hidden" name="phoneNumber" value="@b.PhoneNumber" />
-                            <div class="flex-grow-1">
-                                <input type="email" name="recipientEmail" class="form-control form-control-sm" placeholder="Nhập địa chỉ email của bạn..." required />
+                    @if (!string.IsNullOrWhiteSpace(b.Email))
+                    {
+                        <div class="alert alert-success border-0 p-3 rounded-3 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="small">
+                                <i class="bi bi-envelope-check-fill me-1"></i>
+                                Vé điện tử &amp; Mã QR đã được tự động gửi tới email: <strong>@b.Email</strong>
                             </div>
-                            <button type="submit" class="btn btn-sm btn-outline-primary fw-semibold text-nowrap">
-                                <i class="bi bi-send me-1"></i> Gửi vé về Email
-                            </button>
-                        </form>
-                    </div>
+                            <form asp-action="SendTicketEmail" method="post" class="m-0">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="bookingCode" value="@b.BookingCode" />
+                                <input type="hidden" name="phoneNumber" value="@b.PhoneNumber" />
+                                <input type="hidden" name="recipientEmail" value="@b.Email" />
+                                <button type="submit" class="btn btn-sm btn-outline-success fw-semibold text-nowrap">
+                                    <i class="bi bi-arrow-repeat me-1"></i> Gửi lại vé
+                                </button>
+                            </form>
+                        </div>
+                    }
 
                     <div class="alert alert-info border-0 p-3 rounded-3 mb-4">
                         <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-info-circle me-1 text-info"></i>Chính Sách Hoàn Tiền Khi Hủy Bàn:</h6>

@@ -82,8 +82,8 @@ public class OrderService : IOrderService
 
     public async Task<Result<OrderItemDto>> AddOrderItemAsync(AddOrderItemDto dto, CancellationToken cancellationToken = default)
     {
-        if (dto.Quantity <= 0)
-            return Result<OrderItemDto>.Failure(Error.Validation("Item.InvalidQuantity", "Số lượng món phải lớn hơn 0."));
+        if (dto.Quantity <= 0 || dto.Quantity > 50)
+            return Result<OrderItemDto>.Failure(Error.Validation("Item.InvalidQuantity", "Số lượng món phải từ 1 đến 50."));
 
         var order = await _uow.Orders.GetAll()
             .Include(o => o.OrderDetails)

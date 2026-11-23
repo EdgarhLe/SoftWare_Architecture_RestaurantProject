@@ -107,9 +107,6 @@ public class AccountController : Controller
 
     private IActionResult RedirectToUserDefaultPage()
     {
-        if (User.IsInRole(nameof(StaffRole.Kitchen)))
-            return RedirectToAction("Index", "Kitchen");
-
         return RedirectToAction("Index", "Floor");
     }
 }

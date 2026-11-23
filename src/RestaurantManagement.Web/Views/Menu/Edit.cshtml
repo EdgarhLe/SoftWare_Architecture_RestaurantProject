@@ -37,7 +37,7 @@
 
                     <div class="col-md-8">
                         <label asp-for="Name" class="form-label small fw-semibold">Tên món ăn / Đồ uống *</label>
-                        <input asp-for="Name" class="form-control" required />
+                        <input asp-for="Name" class="form-control" minlength="2" maxlength="120" required />
                         <span asp-validation-for="Name" class="text-danger small"></span>
                     </div>
                 </div>

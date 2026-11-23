@@ -94,6 +94,9 @@ public class ShiftService : IShiftService
         if (shift.Status != ShiftStatus.Active)
             return Result<ShiftSessionDto>.Failure(Error.Validation("Shift.NotActive", "Ca trực này đã đóng trước đó."));
 
+        if (dto.Denominations.Any(d => d.Quantity < 0))
+            return Result<ShiftSessionDto>.Failure(Error.Validation("Shift.InvalidDenomination", "Số lượng tờ tiền kiểm đếm không thể âm."));
+
         // Tính tiền mặt và chuyển khoản phát sinh trong ca
         var invoices = await _uow.Invoices.GetAll()
             .Where(i => i.Status == InvoiceStatus.Paid && i.CreatedAt >= shift.StartTime)

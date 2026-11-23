@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using RestaurantManagement.Business.DTOs;
 using RestaurantManagement.Common.Enums;
+using RestaurantManagement.Common.Validation;
 
 namespace RestaurantManagement.Web.Models;
 
@@ -34,12 +35,15 @@ public class SeatWalkInViewModel
     public int Capacity { get; set; }
 
     [Required(ErrorMessage = "Vui lòng nhập số lượng khách")]
-    [Range(1, 30, ErrorMessage = "Số lượng khách từ 1 đến 30")]
+    [Range(1, 30, ErrorMessage = "Số lượng khách từ 1 đến 30 người")]
     public int GuestCount { get; set; } = 2;
 
+    [StringLength(100, MinimumLength = 2, ErrorMessage = "Tên khách hàng từ 2 đến 100 ký tự")]
+    [RegularExpression(ValidationRules.NamePattern, ErrorMessage = ValidationRules.NameErrorMessage)]
     [Display(Name = "Tên khách hàng (tùy chọn)")]
     public string? CustomerName { get; set; }
 
+    [RegularExpression(ValidationRules.PhonePattern, ErrorMessage = ValidationRules.PhoneErrorMessage)]
     [Display(Name = "Số điện thoại (tùy chọn)")]
     public string? PhoneNumber { get; set; }
 }
@@ -67,7 +71,11 @@ public class AddOrderItemViewModel
 {
     public int OrderId { get; set; }
     public int MenuItemId { get; set; }
+
+    [Range(1, 50, ErrorMessage = "Số lượng món phải từ 1 đến 50")]
     public int Quantity { get; set; } = 1;
+
+    [StringLength(200, ErrorMessage = "Ghi chú tối đa 200 ký tự")]
     public string? Note { get; set; }
 }
 
@@ -110,7 +118,10 @@ public class OpenShiftViewModel
 public class CashDenominationInput
 {
     public int Denomination { get; set; }
+
+    [Range(0, 100000, ErrorMessage = "Số lượng tờ tiền không được âm")]
     public int Quantity { get; set; }
+
     public decimal Total => (decimal)Denomination * Quantity;
 }
 
@@ -134,12 +145,15 @@ public class CheckoutViewModel
 {
     public InvoiceDto? Invoice { get; set; }
     public int OrderId { get; set; }
+
+    [RegularExpression(ValidationRules.PhonePattern, ErrorMessage = ValidationRules.PhoneErrorMessage)]
     public string? CustomerPhone { get; set; }
 
     [Display(Name = "Phương thức thanh toán")]
     public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Cash;
 
     [Display(Name = "Tiền khách đưa (VNĐ)")]
+    [Range(0, 1000000000, ErrorMessage = "Tiền khách đưa không hợp lệ")]
     public decimal CashGiven { get; set; }
 
     public decimal FinalAmount { get; set; }
@@ -183,15 +197,18 @@ public class CreateBookingViewModel
     public int Capacity { get; set; }
 
     [Required(ErrorMessage = "Vui lòng nhập họ tên")]
+    [StringLength(100, MinimumLength = 2, ErrorMessage = "Họ tên từ 2 đến 100 ký tự")]
+    [RegularExpression(ValidationRules.NamePattern, ErrorMessage = ValidationRules.NameErrorMessage)]
     [Display(Name = "Họ và tên")]
     public string CustomerName { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Vui lòng nhập số điện thoại")]
-    [Phone(ErrorMessage = "Số điện thoại không hợp lệ")]
+    [RegularExpression(ValidationRules.PhonePattern, ErrorMessage = ValidationRules.PhoneErrorMessage)]
     [Display(Name = "Số điện thoại")]
     public string PhoneNumber { get; set; } = string.Empty;
 
-    [EmailAddress(ErrorMessage = "Email không hợp lệ")]
+    [Required(ErrorMessage = "Vui lòng nhập địa chỉ email để tự động nhận vé điện tử sau khi cọc")]
+    [RegularExpression(ValidationRules.EmailPattern, ErrorMessage = ValidationRules.EmailErrorMessage)]
     [Display(Name = "Email (nhận xác nhận)")]
     public string? Email { get; set; }
 
@@ -201,10 +218,11 @@ public class CreateBookingViewModel
     [Display(Name = "Giờ đặt")]
     public TimeOnly BookingTime { get; set; }
 
-    [Range(1, 50)]
+    [Range(1, 50, ErrorMessage = "Số khách phải từ 1 đến 50")]
     [Display(Name = "Số khách")]
     public int GuestCount { get; set; }
 
+    [StringLength(300, ErrorMessage = "Yêu cầu đặc biệt tối đa 300 ký tự")]
     [Display(Name = "Yêu cầu đặc biệt")]
     public string? SpecialRequests { get; set; }
 
@@ -223,6 +241,7 @@ public class LookupBookingViewModel
     [Display(Name = "Mã đặt bàn (Ví dụ: BK-20261014-XXXX)")]
     public string? BookingCode { get; set; }
 
+    [RegularExpression(ValidationRules.PhonePattern, ErrorMessage = ValidationRules.PhoneErrorMessage)]
     [Display(Name = "Số điện thoại")]
     public string? PhoneNumber { get; set; }
 
@@ -245,18 +264,21 @@ public class MenuItemFormViewModel
     public int? Id { get; set; }
 
     [Required(ErrorMessage = "Mã món không được trống")]
+    [RegularExpression(ValidationRules.ItemCodePattern, ErrorMessage = ValidationRules.ItemCodeErrorMessage)]
     [Display(Name = "Mã món")]
     public string ItemCode { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Tên món không được trống")]
+    [StringLength(120, MinimumLength = 2, ErrorMessage = "Tên món từ 2 đến 120 ký tự")]
     [Display(Name = "Tên món ăn / đồ uống")]
     public string Name { get; set; } = string.Empty;
 
+    [StringLength(500, ErrorMessage = "Mô tả tối đa 500 ký tự")]
     [Display(Name = "Mô tả")]
     public string? Description { get; set; }
 
     [Required(ErrorMessage = "Vui lòng nhập đơn giá")]
-    [Range(1000, 100000000, ErrorMessage = "Đơn giá tối thiểu 1.000 VNĐ")]
+    [Range(1000, 100000000, ErrorMessage = "Đơn giá từ 1.000 VNĐ đến 100.000.000 VNĐ")]
     [Display(Name = "Đơn giá (VNĐ)")]
     public decimal Price { get; set; }
 
@@ -267,6 +289,8 @@ public class MenuItemFormViewModel
     [Display(Name = "Trạm chế biến")]
     public KitchenStation Station { get; set; } = KitchenStation.HotKitchen;
 
+    [Required(ErrorMessage = "Đơn vị tính không được trống")]
+    [StringLength(30, MinimumLength = 1, ErrorMessage = "Đơn vị tính từ 1 đến 30 ký tự")]
     [Display(Name = "Đơn vị tính")]
     public string Unit { get; set; } = "Phần";
 
@@ -281,7 +305,7 @@ public class UpdatePriceViewModel
     public decimal CurrentPrice { get; set; }
 
     [Required(ErrorMessage = "Vui lòng nhập giá mới")]
-    [Range(1000, 100000000, ErrorMessage = "Đơn giá không hợp lệ")]
+    [Range(1000, 100000000, ErrorMessage = "Đơn giá phải từ 1.000 VNĐ đến 100.000.000 VNĐ")]
     [Display(Name = "Giá mới (VNĐ)")]
     public decimal NewPrice { get; set; }
 
@@ -300,18 +324,23 @@ public class EmployeeFormViewModel
     public int? Id { get; set; }
 
     [Required(ErrorMessage = "Mã nhân viên không được trống")]
+    [RegularExpression(ValidationRules.StaffCodePattern, ErrorMessage = ValidationRules.StaffCodeErrorMessage)]
     [Display(Name = "Mã nhân viên")]
     public string StaffCode { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Họ tên không được trống")]
+    [StringLength(100, MinimumLength = 2, ErrorMessage = "Họ tên từ 2 đến 100 ký tự")]
+    [RegularExpression(ValidationRules.NamePattern, ErrorMessage = ValidationRules.NameErrorMessage)]
     [Display(Name = "Họ và tên")]
     public string FullName { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Tên đăng nhập không được trống")]
+    [RegularExpression(ValidationRules.UsernamePattern, ErrorMessage = ValidationRules.UsernameErrorMessage)]
     [Display(Name = "Tên đăng nhập")]
     public string Username { get; set; } = string.Empty;
 
     [Display(Name = "Mật khẩu (để trống nếu không đổi)")]
+    [StringLength(100, MinimumLength = 6, ErrorMessage = "Mật khẩu phải có ít nhất 6 ký tự")]
     [DataType(DataType.Password)]
     public string? Password { get; set; }
 
@@ -319,17 +348,20 @@ public class EmployeeFormViewModel
     public StaffRole Role { get; set; } = StaffRole.Staff;
 
     [Required(ErrorMessage = "Số điện thoại không được trống")]
+    [RegularExpression(ValidationRules.PhonePattern, ErrorMessage = ValidationRules.PhoneErrorMessage)]
     [Display(Name = "Số điện thoại")]
     public string PhoneNumber { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Số CCCD không được trống")]
+    [RegularExpression(ValidationRules.CitizenIdPattern, ErrorMessage = ValidationRules.CitizenIdErrorMessage)]
     [Display(Name = "Số CCCD / CMND")]
     public string CitizenId { get; set; } = string.Empty;
 
-    [EmailAddress]
+    [RegularExpression(ValidationRules.EmailPattern, ErrorMessage = ValidationRules.EmailErrorMessage)]
     [Display(Name = "Email")]
     public string? Email { get; set; }
 
+    [RegularExpression(ValidationRules.ManagerPinPattern, ErrorMessage = ValidationRules.ManagerPinErrorMessage)]
     [Display(Name = "Mã PIN Quản lý (nếu là Quản lý)")]
     public string? ManagerPin { get; set; }
 

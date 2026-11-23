@@ -6,6 +6,7 @@ using RestaurantManagement.Business.Options;
 using RestaurantManagement.Business.Policies;
 using RestaurantManagement.Common.Enums;
 using RestaurantManagement.Common.Results;
+using RestaurantManagement.Common.Validation;
 using RestaurantManagement.DataAccess.Entities;
 using RestaurantManagement.DataAccess.UnitOfWork;
 
@@ -91,6 +92,22 @@ public class StaffService : IStaffService
 
     public async Task<Result<StaffDto>> CreateStaffAsync(CreateStaffDto dto, CancellationToken cancellationToken = default)
     {
+        if (!ValidationRules.IsValidPersonName(dto.FullName))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidName", ValidationRules.NameErrorMessage));
+
+        var normalizedPhone = ValidationRules.NormalizePhoneNumber(dto.PhoneNumber);
+        if (!ValidationRules.IsValidPhoneNumber(normalizedPhone))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidPhone", ValidationRules.PhoneErrorMessage));
+
+        if (!ValidationRules.IsValidCitizenId(dto.CitizenId))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidCitizenId", ValidationRules.CitizenIdErrorMessage));
+
+        if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 6)
+            return Result<StaffDto>.Failure(Error.Validation("Staff.WeakPassword", "Mật khẩu phải có ít nhất 6 ký tự."));
+
+        if (!string.IsNullOrWhiteSpace(dto.ApprovalPin) && !ValidationRules.IsValidManagerPin(dto.ApprovalPin))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidPin", ValidationRules.ManagerPinErrorMessage));
+
         var codeExists = await _uow.Staffs.GetAll().AnyAsync(s => s.StaffCode == dto.StaffCode.Trim(), cancellationToken);
         if (codeExists)
             return Result<StaffDto>.Failure(Error.Conflict("Staff.CodeExists", $"Mã nhân viên '{dto.StaffCode}' đã tồn tại."));
@@ -109,7 +126,7 @@ public class StaffService : IStaffService
             FullName = dto.FullName.Trim(),
             Username = dto.Username.Trim(),
             Role = dto.Role,
-            PhoneNumber = dto.PhoneNumber.Trim(),
+            PhoneNumber = normalizedPhone,
             CitizenId = dto.CitizenId.Trim(),
             IsActive = true,
             CreatedAt = DateTime.UtcNow
@@ -140,6 +157,22 @@ public class StaffService : IStaffService
 
     public async Task<Result<StaffDto>> UpdateStaffAsync(UpdateStaffDto dto, CancellationToken cancellationToken = default)
     {
+        if (!ValidationRules.IsValidPersonName(dto.FullName))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidName", ValidationRules.NameErrorMessage));
+
+        var normalizedPhone = ValidationRules.NormalizePhoneNumber(dto.PhoneNumber);
+        if (!ValidationRules.IsValidPhoneNumber(normalizedPhone))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidPhone", ValidationRules.PhoneErrorMessage));
+
+        if (!ValidationRules.IsValidCitizenId(dto.CitizenId))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidCitizenId", ValidationRules.CitizenIdErrorMessage));
+
+        if (!string.IsNullOrWhiteSpace(dto.NewPassword) && dto.NewPassword.Length < 6)
+            return Result<StaffDto>.Failure(Error.Validation("Staff.WeakPassword", "Mật khẩu mới phải có ít nhất 6 ký tự."));
+
+        if (!string.IsNullOrWhiteSpace(dto.ApprovalPin) && !ValidationRules.IsValidManagerPin(dto.ApprovalPin))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidPin", ValidationRules.ManagerPinErrorMessage));
+
         var staff = await _uow.Staffs.GetByIdAsync(dto.Id, cancellationToken);
         if (staff == null)
             return Result<StaffDto>.Failure(Error.NotFound("Staff.NotFound", "Không tìm thấy nhân viên."));
@@ -149,7 +182,7 @@ public class StaffService : IStaffService
             return Result<StaffDto>.Failure(Error.Conflict("Staff.CitizenExists", $"Số CCCD '{dto.CitizenId}' đã tồn tại ở tài khoản khác."));
 
         staff.FullName = dto.FullName.Trim();
-        staff.PhoneNumber = dto.PhoneNumber.Trim();
+        staff.PhoneNumber = normalizedPhone;
         staff.CitizenId = dto.CitizenId.Trim();
         staff.Role = dto.Role;
         staff.IsActive = dto.IsActive;

@@ -63,8 +63,14 @@ public class OrderController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddItem(AddOrderItemViewModel model)
     {
-        if (model.Quantity <= 0)
-            model.Quantity = 1;
+        if (!ModelState.IsValid || model.Quantity < 1 || model.Quantity > 50)
+        {
+            TempData["ErrorMessage"] = "Số lượng món phải từ 1 đến 50.";
+            var fallbackOrder = await _orderService.GetOrderByIdAsync(model.OrderId);
+            if (fallbackOrder.IsSuccess)
+                return RedirectToAction(nameof(Table), new { tableId = fallbackOrder.Value.TableId });
+            return RedirectToAction("Index", "Floor");
+        }
 
         var result = await _orderService.AddOrderItemAsync(new AddOrderItemDto(
             model.OrderId,
