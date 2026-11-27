@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RestaurantManagement.Business.DTOs;
 using RestaurantManagement.Business.Services;
+using RestaurantManagement.Common.Enums;
 using RestaurantManagement.Web.Models;
 
 namespace RestaurantManagement.Web.Controllers;
@@ -62,8 +63,14 @@ public class OrderController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddItem(AddOrderItemViewModel model)
     {
-        if (model.Quantity <= 0)
-            model.Quantity = 1;
+        if (!ModelState.IsValid || model.Quantity < 1 || model.Quantity > 50)
+        {
+            TempData["ErrorMessage"] = "Số lượng món phải từ 1 đến 50.";
+            var fallbackOrder = await _orderService.GetOrderByIdAsync(model.OrderId);
+            if (fallbackOrder.IsSuccess)
+                return RedirectToAction(nameof(Table), new { tableId = fallbackOrder.Value.TableId });
+            return RedirectToAction("Index", "Floor");
+        }
 
         var result = await _orderService.AddOrderItemAsync(new AddOrderItemDto(
             model.OrderId,
@@ -116,12 +123,35 @@ public class OrderController : Controller
         var result = await _orderService.SendToKitchenAsync(orderId);
         if (!result.IsSuccess)
         {
-            TempData["ErrorMessage"] = result.Error?.Description ?? "Không thể gửi order xuống bếp.";
+            TempData["ErrorMessage"] = result.Error?.Description ?? "Không thể gửi order đi chế biến.";
         }
         else
         {
             var ticketCount = result.Value.TicketCodes.Count;
-            TempData["SuccessMessage"] = $"Đã in & gửi thành công {result.Value.ItemCount} món tới {ticketCount} trạm bếp (KOT: {string.Join(", ", result.Value.TicketCodes)}).";
+            TempData["SuccessMessage"] = $"Đã in phiếu KOT thành công {result.Value.ItemCount} món tới {ticketCount} trạm chế biến (KOT: {string.Join(", ", result.Value.TicketCodes)}).";
+        }
+
+        var orderResult = await _orderService.GetOrderByIdAsync(orderId);
+        if (orderResult.IsSuccess)
+        {
+            return RedirectToAction(nameof(Table), new { tableId = orderResult.Value.TableId });
+        }
+
+        return RedirectToAction("Index", "Floor");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkItemServed(int orderDetailId, int orderId)
+    {
+        var result = await _orderService.UpdateItemStatusAsync(orderDetailId, OrderItemStatus.Served);
+        if (!result.IsSuccess)
+        {
+            TempData["ErrorMessage"] = result.Error?.Description ?? "Không thể cập nhật trạng thái món.";
+        }
+        else
+        {
+            TempData["SuccessMessage"] = "Đã cập nhật trạng thái món: Đã lên bàn phục vụ.";
         }
 
         var orderResult = await _orderService.GetOrderByIdAsync(orderId);
@@ -140,7 +170,7 @@ public class OrderController : Controller
         var result = await _orderService.ChangeOrderItemAsync(new ChangeOrderItemDto(
             model.OrderDetailId,
             model.NewMenuItemId,
-            1,
+            model.NewQuantity > 0 ? model.NewQuantity : 1,
             model.Reason,
             model.ManagerPin
         ));
@@ -170,7 +200,7 @@ public class OrderController : Controller
         var result = await _orderService.ReturnOrderItemAsync(new ReturnOrderItemDto(
             model.OrderDetailId,
             model.Reason,
-            RestaurantFault: true,
+            RestaurantFault: model.RestaurantFault,
             ManagerPin: model.ManagerPin
         ));
 

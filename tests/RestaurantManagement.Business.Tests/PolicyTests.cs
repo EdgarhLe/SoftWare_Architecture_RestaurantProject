@@ -173,10 +173,37 @@ public class PolicyTests
         // Deposit deducted = 200,000
         // FinalAmount = 394,000
         Assert.Equal(500000m, breakdown.ItemsTotal);
-        Assert.Equal(500000m, breakdown.ItemsTotal);
         Assert.Equal(50000m, breakdown.SurchargeAmount);
         Assert.Equal(44000m, breakdown.VatAmount);
         Assert.Equal(200000m, breakdown.DepositDeducted);
         Assert.Equal(394000m, breakdown.FinalAmount);
+    }
+
+    [Fact]
+    public void BillingCalculator_ShouldApplyAutoDiscounts_AndCalculateVatOnTaxableAmount()
+    {
+        var rules = new BillingRules
+        {
+            VatRate = 0.08m,
+            PeakSurcharge = 50000,
+            PeakDays = ["Saturday", "Sunday"],
+            PeakFrom = "18:00",
+            PeakTo = "21:00"
+        };
+        var peakPolicy = new PeakHourPolicy(rules);
+        var calculator = new BillingCalculator(rules, peakPolicy);
+
+        // Weekday 12:00 local = 05:00 UTC (no peak surcharge)
+        var weekdayOrderTime = new DateTime(2026, 10, 14, 5, 0, 0, DateTimeKind.Utc);
+
+        // 1,200,000đ + 10 servings => 5% (60,000) + 50,000 = 110,000 discount
+        // Taxable = 1,200,000 - 110,000 = 1,090,000
+        // VAT 8% = 87,200 -> rounded 87,000
+        // Final = 1,090,000 + 87,000 = 1,177,000
+        var breakdown = calculator.Calculate(1_200_000m, weekdayOrderTime, MembershipRank.Standard, 0, 0, totalQuantity: 10);
+
+        Assert.Equal(110000m, breakdown.DiscountAmount);
+        Assert.Equal(87000m, breakdown.VatAmount);
+        Assert.Equal(1177000m, breakdown.FinalAmount);
     }
 }

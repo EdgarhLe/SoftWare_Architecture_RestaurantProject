@@ -6,6 +6,7 @@ using RestaurantManagement.Business.Options;
 using RestaurantManagement.Business.Policies;
 using RestaurantManagement.Common.Enums;
 using RestaurantManagement.Common.Results;
+using RestaurantManagement.Common.Validation;
 using RestaurantManagement.DataAccess.Entities;
 using RestaurantManagement.DataAccess.UnitOfWork;
 
@@ -18,6 +19,7 @@ public interface IStaffService
     Task<Result<StaffDto>> CreateStaffAsync(CreateStaffDto dto, CancellationToken cancellationToken = default);
     Task<Result<StaffDto>> UpdateStaffAsync(UpdateStaffDto dto, CancellationToken cancellationToken = default);
     Task<Result<AttendanceDto>> CheckInAttendanceAsync(CheckInAttendanceDto dto, CancellationToken cancellationToken = default);
+    Task<Result<AttendanceDto>> CheckOutAttendanceAsync(int staffId, CancellationToken cancellationToken = default);
     Task<List<AttendanceDto>> GetAttendancesAsync(DateOnly? date = null, CancellationToken cancellationToken = default);
     Task<Result> ApproveAttendanceAsync(ApproveAttendanceDto dto, CancellationToken cancellationToken = default);
 }
@@ -91,6 +93,22 @@ public class StaffService : IStaffService
 
     public async Task<Result<StaffDto>> CreateStaffAsync(CreateStaffDto dto, CancellationToken cancellationToken = default)
     {
+        if (!ValidationRules.IsValidPersonName(dto.FullName))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidName", ValidationRules.NameErrorMessage));
+
+        var normalizedPhone = ValidationRules.NormalizePhoneNumber(dto.PhoneNumber);
+        if (!ValidationRules.IsValidPhoneNumber(normalizedPhone))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidPhone", ValidationRules.PhoneErrorMessage));
+
+        if (!ValidationRules.IsValidCitizenId(dto.CitizenId))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidCitizenId", ValidationRules.CitizenIdErrorMessage));
+
+        if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 6)
+            return Result<StaffDto>.Failure(Error.Validation("Staff.WeakPassword", "Mật khẩu phải có ít nhất 6 ký tự."));
+
+        if (!string.IsNullOrWhiteSpace(dto.ApprovalPin) && !ValidationRules.IsValidManagerPin(dto.ApprovalPin))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidPin", ValidationRules.ManagerPinErrorMessage));
+
         var codeExists = await _uow.Staffs.GetAll().AnyAsync(s => s.StaffCode == dto.StaffCode.Trim(), cancellationToken);
         if (codeExists)
             return Result<StaffDto>.Failure(Error.Conflict("Staff.CodeExists", $"Mã nhân viên '{dto.StaffCode}' đã tồn tại."));
@@ -109,7 +127,7 @@ public class StaffService : IStaffService
             FullName = dto.FullName.Trim(),
             Username = dto.Username.Trim(),
             Role = dto.Role,
-            PhoneNumber = dto.PhoneNumber.Trim(),
+            PhoneNumber = normalizedPhone,
             CitizenId = dto.CitizenId.Trim(),
             IsActive = true,
             CreatedAt = DateTime.UtcNow
@@ -140,6 +158,22 @@ public class StaffService : IStaffService
 
     public async Task<Result<StaffDto>> UpdateStaffAsync(UpdateStaffDto dto, CancellationToken cancellationToken = default)
     {
+        if (!ValidationRules.IsValidPersonName(dto.FullName))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidName", ValidationRules.NameErrorMessage));
+
+        var normalizedPhone = ValidationRules.NormalizePhoneNumber(dto.PhoneNumber);
+        if (!ValidationRules.IsValidPhoneNumber(normalizedPhone))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidPhone", ValidationRules.PhoneErrorMessage));
+
+        if (!ValidationRules.IsValidCitizenId(dto.CitizenId))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidCitizenId", ValidationRules.CitizenIdErrorMessage));
+
+        if (!string.IsNullOrWhiteSpace(dto.NewPassword) && dto.NewPassword.Length < 6)
+            return Result<StaffDto>.Failure(Error.Validation("Staff.WeakPassword", "Mật khẩu mới phải có ít nhất 6 ký tự."));
+
+        if (!string.IsNullOrWhiteSpace(dto.ApprovalPin) && !ValidationRules.IsValidManagerPin(dto.ApprovalPin))
+            return Result<StaffDto>.Failure(Error.Validation("Staff.InvalidPin", ValidationRules.ManagerPinErrorMessage));
+
         var staff = await _uow.Staffs.GetByIdAsync(dto.Id, cancellationToken);
         if (staff == null)
             return Result<StaffDto>.Failure(Error.NotFound("Staff.NotFound", "Không tìm thấy nhân viên."));
@@ -149,7 +183,7 @@ public class StaffService : IStaffService
             return Result<StaffDto>.Failure(Error.Conflict("Staff.CitizenExists", $"Số CCCD '{dto.CitizenId}' đã tồn tại ở tài khoản khác."));
 
         staff.FullName = dto.FullName.Trim();
-        staff.PhoneNumber = dto.PhoneNumber.Trim();
+        staff.PhoneNumber = normalizedPhone;
         staff.CitizenId = dto.CitizenId.Trim();
         staff.Role = dto.Role;
         staff.IsActive = dto.IsActive;
@@ -246,6 +280,42 @@ public class StaffService : IStaffService
             attendance.LateMinutes,
             attendance.Note,
             null
+        ));
+    }
+
+    public async Task<Result<AttendanceDto>> CheckOutAttendanceAsync(int staffId, CancellationToken cancellationToken = default)
+    {
+        var staff = await _uow.Staffs.GetByIdAsync(staffId, cancellationToken);
+        if (staff == null)
+            return Result<AttendanceDto>.Failure(Error.NotFound("Staff.NotFound", "Không tìm thấy nhân viên."));
+
+        var nowUtc = DateTime.UtcNow;
+        var localNow = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, _timeZone);
+        var workDate = DateOnly.FromDateTime(localNow);
+
+        var attendance = await _uow.Attendances.GetAll()
+            .Include(a => a.ApprovedBy)
+            .FirstOrDefaultAsync(a => a.StaffId == staffId && a.WorkDate == workDate, cancellationToken);
+
+        if (attendance == null)
+            return Result<AttendanceDto>.Failure(Error.NotFound("Attendance.NotFound", "Chưa có bản ghi điểm danh vào ca hôm nay."));
+
+        attendance.CheckOutTime = nowUtc;
+        await _uow.SaveChangesAsync(cancellationToken);
+
+        return Result<AttendanceDto>.Success(new AttendanceDto(
+            attendance.Id,
+            staff.Id,
+            staff.StaffCode,
+            staff.FullName,
+            staff.Role,
+            attendance.WorkDate,
+            attendance.CheckInTime,
+            attendance.CheckOutTime,
+            attendance.IsLate,
+            attendance.LateMinutes,
+            attendance.Note,
+            attendance.ApprovedBy?.FullName
         ));
     }
 

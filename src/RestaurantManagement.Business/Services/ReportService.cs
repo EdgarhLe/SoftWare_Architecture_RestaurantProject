@@ -36,6 +36,7 @@ public class ReportService : IReportService
         var surchargeTotal = invoices.Sum(i => i.SurchargeAmount);
         var vatTotal = invoices.Sum(i => i.VatAmount);
         var discountTotal = invoices.Sum(i => i.DiscountAmount);
+        var depositTotal = invoices.Sum(i => i.DepositDeducted);
         var netTotal = invoices.Sum(i => i.FinalAmount);
         var cashTotal = invoices.Where(i => i.PaymentMethod == PaymentMethod.Cash).Sum(i => i.FinalAmount);
         var transferTotal = invoices.Where(i => i.PaymentMethod == PaymentMethod.BankTransfer).Sum(i => i.FinalAmount);
@@ -49,7 +50,8 @@ public class ReportService : IReportService
                 g.Sum(i => i.SurchargeAmount),
                 g.Sum(i => i.VatAmount),
                 g.Sum(i => i.DiscountAmount),
-                g.Sum(i => i.FinalAmount)
+                g.Sum(i => i.FinalAmount),
+                g.Sum(i => i.DepositDeducted)
             ))
             .OrderBy(d => d.Date)
             .ToList();
@@ -65,7 +67,8 @@ public class ReportService : IReportService
             netTotal,
             cashTotal,
             transferTotal,
-            dailyBreakdown
+            dailyBreakdown,
+            depositTotal
         );
     }
 
@@ -110,6 +113,7 @@ public class ReportService : IReportService
         }).ToList();
 
         var topSellers = fullSalesList
+            .Where(s => s.QuantitySold > 0)
             .OrderByDescending(s => s.QuantitySold)
             .ThenByDescending(s => s.TotalSales)
             .Take(10)

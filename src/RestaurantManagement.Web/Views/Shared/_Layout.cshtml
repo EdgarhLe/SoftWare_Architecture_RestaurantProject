@@ -76,15 +76,6 @@
                                 </li>
                             }
 
-                            @if (User.IsInRole(nameof(StaffRole.Kitchen)) || User.IsInRole(nameof(StaffRole.Manager)))
-                            {
-                                <li class="nav-item">
-                                    <a class="nav-link text-warning-emphasis fw-semibold" asp-controller="Kitchen" asp-action="Index">
-                                        <i class="bi bi-fire me-1"></i> Bếp KDS
-                                    </a>
-                                </li>
-                            }
-
                             @if (User.IsInRole(nameof(StaffRole.Manager)))
                             {
                                 <li class="nav-item dropdown">
@@ -146,6 +137,14 @@
                                 <ul class="dropdown-menu dropdown-menu-end border-0 shadow-sm mt-2">
                                     <li><h6 class="dropdown-header">Tài khoản: @User.Identity.Name</h6></li>
                                     <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <form asp-controller="Account" asp-action="CheckOutShift" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="dropdown-item text-primary">
+                                                <i class="bi bi-clock-history me-2"></i> Xác nhận kết ca (BM11)
+                                            </button>
+                                        </form>
+                                    </li>
                                     <li>
                                         <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
                                             @Html.AntiForgeryToken()

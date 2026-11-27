@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RestaurantManagement.Business.DTOs;
 using RestaurantManagement.Business.Services;
+using RestaurantManagement.Common.Validation;
 using RestaurantManagement.Web.Models;
 
 namespace RestaurantManagement.Web.Controllers;
@@ -64,6 +65,9 @@ public class BookingController : Controller
             }
         }
 
+        var floorPlan = await _tableService.GetFloorPlanAsync();
+        ViewBag.Areas = floorPlan.Select(a => (a.AreaId, a.AreaName)).ToList();
+
         return View(model);
     }
 
@@ -71,6 +75,9 @@ public class BookingController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Search(SearchAvailableTablesViewModel model)
     {
+        var floorPlan = await _tableService.GetFloorPlanAsync();
+        ViewBag.Areas = floorPlan.Select(a => (a.AreaId, a.AreaName)).ToList();
+
         if (!ModelState.IsValid)
             return View(model);
 
@@ -81,13 +88,14 @@ public class BookingController : Controller
             model.PreferredAreaId
         ));
 
-        model.HasSearched = true;
         if (result.IsSuccess)
         {
+            model.HasSearched = true;
             model.AvailableTables = result.Value;
         }
         else
         {
+            model.HasSearched = false;
             ModelState.AddModelError(string.Empty, result.Error?.Description ?? "Không tìm thấy bàn phù hợp.");
         }
 
@@ -98,6 +106,12 @@ public class BookingController : Controller
     [HttpGet]
     public async Task<IActionResult> Create(int tableId, string date, string time, int guests)
     {
+        if (!DateOnly.TryParse(date, out var bookingDate) || !TimeOnly.TryParse(time, out var bookingTime) || guests < 1 || guests > 50)
+        {
+            TempData["ErrorMessage"] = "Thông tin tìm bàn không hợp lệ. Vui lòng tra cứu lại.";
+            return RedirectToAction(nameof(Search));
+        }
+
         var tableResult = await _tableService.GetTableByIdAsync(tableId);
         if (!tableResult.IsSuccess)
         {
@@ -106,8 +120,6 @@ public class BookingController : Controller
         }
 
         var table = tableResult.Value;
-        var bookingDate = DateOnly.Parse(date);
-        var bookingTime = TimeOnly.Parse(time);
 
         // Tiền cọc: < 6 người -> 200k, >= 6 người -> 500k
         var deposit = guests >= 6 ? 500000m : 200000m;
@@ -200,8 +212,20 @@ public class BookingController : Controller
             return RedirectToAction(nameof(Payment), new { bookingId });
         }
 
-        TempData["SuccessMessage"] = $"Thanh toán cọc thành công! Bàn của quý khách đã được xác nhận (Mã đặt bàn: {result.Value.BookingCode}). Vé điện tử và mã QR đã được gửi về email của quý khách.";
-        return RedirectToAction(nameof(Lookup), new { bookingCode = result.Value.BookingCode, phoneNumber = result.Value.PhoneNumber });
+        var booking = result.Value;
+        if (!string.IsNullOrWhiteSpace(booking.Email))
+        {
+            var emailSent = await _emailService.SendBookingConfirmationEmailAsync(booking, booking.Email);
+            TempData["SuccessMessage"] = emailSent
+                ? $"Thanh toán cọc thành công! Bàn của quý khách đã được xác nhận (Mã đặt bàn: {booking.BookingCode}). Vé điện tử và mã QR đã được tự động gửi về email {booking.Email}."
+                : $"Thanh toán cọc thành công! Bàn của quý khách đã được xác nhận (Mã đặt bàn: {booking.BookingCode}). Email gửi tới {booking.Email} chưa gửi được qua SMTP (đã lưu bản xem trước tại 'SentEmails').";
+        }
+        else
+        {
+            TempData["SuccessMessage"] = $"Thanh toán cọc thành công! Bàn của quý khách đã được xác nhận (Mã đặt bàn: {booking.BookingCode}).";
+        }
+
+        return RedirectToAction(nameof(Lookup), new { bookingCode = booking.BookingCode, phoneNumber = booking.PhoneNumber });
     }
 
     // BM15: Tra cứu & Hủy đặt bàn
@@ -281,9 +305,9 @@ public class BookingController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SendTicketEmail(string bookingCode, string phoneNumber, string recipientEmail)
     {
-        if (string.IsNullOrWhiteSpace(recipientEmail))
+        if (!ValidationRules.IsValidEmail(recipientEmail))
         {
-            TempData["ErrorMessage"] = "Vui lòng nhập địa chỉ email hợp lệ.";
+            TempData["ErrorMessage"] = ValidationRules.EmailErrorMessage;
             return RedirectToAction(nameof(Lookup), new { bookingCode, phoneNumber });
         }
 

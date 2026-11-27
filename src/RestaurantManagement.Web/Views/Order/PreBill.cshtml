@@ -8,16 +8,26 @@
         <h3 class="fw-bold mb-1 brand-serif">Phiếu Tạm Tính Tiền (BM02)</h3>
         <p class="text-muted small mb-0">Xem trước hóa đơn để khách kiểm tra món trước khi thanh toán</p>
     </div>
-    <div class="d-flex gap-2">
-        <a asp-action="Table" asp-route-tableId="@Model.PreBill.Items.FirstOrDefault()?.Id" class="btn btn-outline-secondary">
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-action="Table" asp-route-tableId="@Model.PreBill.TableId" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i> Quay lại gọi món
         </a>
         <button type="button" class="btn btn-sen-primary" onclick="window.print()">
             <i class="bi bi-printer me-1"></i> In phiếu tạm tính
         </button>
-        <a asp-controller="Invoice" asp-action="Checkout" asp-route-orderId="@Model.PreBill.Items.FirstOrDefault()?.Id" class="btn btn-success fw-semibold">
-            <i class="bi bi-cash-stack me-1"></i> Sang quầy thanh toán (BM05) &rarr;
-        </a>
+        <form asp-action="RequestPayment" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="orderId" value="@Model.PreBill.OrderId" />
+            <button type="submit" class="btn btn-warning text-dark fw-semibold">
+                <i class="bi bi-bell me-1"></i> Yêu cầu thanh toán
+            </button>
+        </form>
+        @if (User.IsInRole(nameof(StaffRole.Cashier)) || User.IsInRole(nameof(StaffRole.Manager)))
+        {
+            <a asp-controller="Invoice" asp-action="Checkout" asp-route-orderId="@Model.PreBill.OrderId" class="btn btn-success fw-semibold">
+                <i class="bi bi-cash-stack me-1"></i> Sang quầy thanh toán (BM05) &rarr;
+            </a>
+        }
     </div>
 </div>
 
@@ -36,7 +46,7 @@
             <span>Bàn: <strong>@Model.PreBill.TableNumber (@Model.PreBill.AreaName)</strong></span>
         </div>
         <div class="d-flex justify-content-between">
-            <span>Giờ vào: @Model.PreBill.OrderTime.ToString("HH:mm dd/MM/yyyy")</span>
+            <span>Giờ vào: @Model.PreBill.OrderTime.ToLocalTime().ToString("HH:mm dd/MM/yyyy")</span>
             <span>Số khách: @Model.PreBill.GuestCount người</span>
         </div>
     </div>

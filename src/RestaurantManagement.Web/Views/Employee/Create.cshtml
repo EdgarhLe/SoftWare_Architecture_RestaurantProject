@@ -29,13 +29,13 @@
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
                         <label asp-for="StaffCode" class="form-label small fw-semibold">Mã nhân viên (duy nhất) *</label>
-                        <input asp-for="StaffCode" class="form-control" placeholder="Ví dụ: NV05, QL02..." required />
+                        <input asp-for="StaffCode" class="form-control" maxlength="20" pattern="@RestaurantManagement.Common.Validation.ValidationRules.StaffCodePattern" title="@RestaurantManagement.Common.Validation.ValidationRules.StaffCodeErrorMessage" placeholder="Ví dụ: NV05, QL02..." required />
                         <span asp-validation-for="StaffCode" class="text-danger small"></span>
                     </div>
 
                     <div class="col-md-6">
                         <label asp-for="FullName" class="form-label small fw-semibold">Họ và tên nhân viên *</label>
-                        <input asp-for="FullName" class="form-control" placeholder="Ví dụ: Hoàng Văn Nam" required />
+                        <input asp-for="FullName" class="form-control" minlength="2" maxlength="100" placeholder="Ví dụ: Hoàng Văn Nam" required />
                         <span asp-validation-for="FullName" class="text-danger small"></span>
                     </div>
                 </div>
@@ -43,13 +43,13 @@
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
                         <label asp-for="Username" class="form-label small fw-semibold">Tên đăng nhập hệ thống *</label>
-                        <input asp-for="Username" class="form-control" placeholder="Ví dụ: namhv" required />
+                        <input asp-for="Username" class="form-control" minlength="3" maxlength="30" pattern="@RestaurantManagement.Common.Validation.ValidationRules.UsernamePattern" title="@RestaurantManagement.Common.Validation.ValidationRules.UsernameErrorMessage" placeholder="Ví dụ: namhv" required />
                         <span asp-validation-for="Username" class="text-danger small"></span>
                     </div>
 
                     <div class="col-md-6">
-                        <label asp-for="Password" class="form-label small fw-semibold">Mật khẩu ban đầu *</label>
-                        <input asp-for="Password" type="password" class="form-control" placeholder="Nhập mật khẩu..." required />
+                        <label asp-for="Password" class="form-label small fw-semibold">Mật khẩu ban đầu (tối thiểu 6 ký tự) *</label>
+                        <input asp-for="Password" type="password" class="form-control" minlength="6" maxlength="100" placeholder="Nhập mật khẩu..." required />
                         <span asp-validation-for="Password" class="text-danger small"></span>
                     </div>
                 </div>
@@ -60,27 +60,27 @@
                         <select asp-for="Role" class="form-select">
                             <option value="@StaffRole.Staff">Phục vụ bàn (Staff)</option>
                             <option value="@StaffRole.Cashier">Thu ngân (Cashier)</option>
-                            <option value="@StaffRole.Kitchen">Đầu bếp (Kitchen)</option>
                             <option value="@StaffRole.Manager">Quản lý nhà hàng (Manager)</option>
                         </select>
                     </div>
 
                     <div class="col-md-6">
-                        <label asp-for="ManagerPin" class="form-label small fw-semibold">Mã PIN Quản lý (chỉ cần nếu là Quản lý)</label>
-                        <input asp-for="ManagerPin" type="password" class="form-control" placeholder="Ví dụ: 1234" />
+                        <label asp-for="ManagerPin" class="form-label small fw-semibold">Mã PIN Quản lý (4-6 chữ số, bắt buộc nếu là Quản lý)</label>
+                        <input asp-for="ManagerPin" type="password" class="form-control" maxlength="6" pattern="^\d{4,6}$" title="@RestaurantManagement.Common.Validation.ValidationRules.ManagerPinErrorMessage" placeholder="Ví dụ: 1234" />
+                        <span asp-validation-for="ManagerPin" class="text-danger small"></span>
                     </div>
                 </div>
 
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <label asp-for="PhoneNumber" class="form-label small fw-semibold">Số điện thoại liên hệ *</label>
-                        <input asp-for="PhoneNumber" class="form-control" placeholder="09xxxxxxxx" required />
+                        <input asp-for="PhoneNumber" type="tel" class="form-control" maxlength="12" pattern="@RestaurantManagement.Common.Validation.ValidationRules.PhoneHtmlPattern" title="@RestaurantManagement.Common.Validation.ValidationRules.PhoneErrorMessage" placeholder="0912345678" required />
                         <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
                     </div>
 
                     <div class="col-md-6">
-                        <label asp-for="CitizenId" class="form-label small fw-semibold">Số CCCD / CMND *</label>
-                        <input asp-for="CitizenId" class="form-control" placeholder="12 chữ số CCCD" required />
+                        <label asp-for="CitizenId" class="form-label small fw-semibold">Số CCCD (12 chữ số) *</label>
+                        <input asp-for="CitizenId" class="form-control" maxlength="12" pattern="\d{12}" title="@RestaurantManagement.Common.Validation.ValidationRules.CitizenIdErrorMessage" placeholder="12 chữ số CCCD" required />
                         <span asp-validation-for="CitizenId" class="text-danger small"></span>
                     </div>
                 </div>

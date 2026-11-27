@@ -37,7 +37,7 @@
 
                     <div class="col-md-8">
                         <label asp-for="Name" class="form-label small fw-semibold">Tên món ăn / Đồ uống *</label>
-                        <input asp-for="Name" class="form-control" required />
+                        <input asp-for="Name" class="form-control" minlength="2" maxlength="120" required />
                         <span asp-validation-for="Name" class="text-danger small"></span>
                     </div>
                 </div>
@@ -54,7 +54,7 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label asp-for="Station" class="form-label small fw-semibold">Trạm chế biến bếp *</label>
+                        <label asp-for="Station" class="form-label small fw-semibold">Trạm chế biến in KOT *</label>
                         <select asp-for="Station" class="form-select">
                             <option value="@KitchenStation.HotKitchen">Bếp Nóng (Hot Kitchen)</option>
                             <option value="@KitchenStation.ColdKitchen">Bếp Lạnh (Cold Kitchen)</option>
@@ -79,11 +79,16 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label small fw-semibold">Trạng thái kinh doanh</label>
-                        <div class="form-check form-switch pt-2">
-                            <input class="form-check-input" type="checkbox" asp-for="IsAvailable" id="availSwitch">
-                            <label class="form-check-label fw-semibold" for="availSwitch">Đang mở bán phục vụ khách</label>
-                        </div>
+                        <label for="managerPin" class="form-label small fw-semibold">Mã PIN Quản lý (bắt buộc nếu đổi giá)</label>
+                        <input id="managerPin" name="managerPin" type="password" maxlength="6" class="form-control" placeholder="Nhập mã PIN nếu thay đổi đơn giá..." />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Trạng thái kinh doanh</label>
+                    <div class="form-check form-switch pt-1">
+                        <input class="form-check-input" type="checkbox" asp-for="IsAvailable" id="availSwitch">
+                        <label class="form-check-label fw-semibold" for="availSwitch">Đang mở bán phục vụ khách</label>
                     </div>
                 </div>
 

@@ -48,7 +48,11 @@ public class FloorController : Controller
     {
         if (!ModelState.IsValid)
         {
-            TempData["ErrorMessage"] = "Thông tin xếp bàn không hợp lệ.";
+            var errors = ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .Where(m => !string.IsNullOrWhiteSpace(m));
+            TempData["ErrorMessage"] = string.Join(" ", errors);
             return RedirectToAction(nameof(Index));
         }
 
@@ -88,7 +92,7 @@ public class FloorController : Controller
         }
 
         TempData["SuccessMessage"] = $"Xác nhận khách đặt bàn {model.CustomerName} vào bàn {model.TableCode}.";
-        return RedirectToAction("Table", "Order", new { tableId = model.TableId });
+        return RedirectToAction("Table", "Order", new { tableId = result.Value.TableId });
     }
 
     [HttpPost]
@@ -103,6 +107,27 @@ public class FloorController : Controller
         else
         {
             TempData["SuccessMessage"] = "Đã dọn dẹp xong bàn. Bàn sẵn sàng đón khách.";
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [Authorize(Policy = "ManagerOnly")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetMaintenance(int tableId, bool isMaintenance, string? reason = null)
+    {
+        var staffId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var result = await _tableService.SetTableMaintenanceAsync(tableId, isMaintenance, reason, staffId);
+        if (!result.IsSuccess)
+        {
+            TempData["ErrorMessage"] = result.Error?.Description ?? "Không thể cập nhật trạng thái bảo trì bàn.";
+        }
+        else
+        {
+            TempData["SuccessMessage"] = isMaintenance
+                ? "Đã chuyển bàn sang trạng thái Bảo trì."
+                : "Đã hoàn tất bảo trì, bàn sẵn sàng phục vụ.";
         }
 
         return RedirectToAction(nameof(Index));

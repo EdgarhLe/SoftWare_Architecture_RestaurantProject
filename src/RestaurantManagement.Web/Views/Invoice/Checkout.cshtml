@@ -8,7 +8,7 @@
         <h3 class="fw-bold mb-1 brand-serif">Thanh Toán & Lập Hóa Đơn (BM05)</h3>
         <p class="text-muted small mb-0">Thu ngân kiểm tra giảm giá thành viên, phụ thu cao điểm và thu tiền</p>
     </div>
-    <a asp-controller="Order" asp-action="Table" asp-route-tableId="@Model.OrderId" class="btn btn-outline-secondary">
+    <a asp-controller="Order" asp-action="Table" asp-route-tableId="@Model.Invoice!.TableId" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i> Quay lại order bàn
     </a>
 </div>
@@ -31,7 +31,7 @@
                 <label class="form-label small fw-semibold">Số điện thoại khách hàng (Tra cứu Thẻ Thành Viên)</label>
                 <div class="input-group">
                     <span class="input-group-text bg-light"><i class="bi bi-telephone"></i></span>
-                    <input type="text" name="customerPhone" value="@Model.CustomerPhone" class="form-control" placeholder="Nhập SĐT để áp dụng giảm giá 5%, 10%, 15%..." />
+                    <input type="tel" name="customerPhone" value="@Model.CustomerPhone" class="form-control" maxlength="12" pattern="@RestaurantManagement.Common.Validation.ValidationRules.PhoneHtmlPattern" title="@RestaurantManagement.Common.Validation.ValidationRules.PhoneErrorMessage" placeholder="Nhập SĐT để áp dụng giảm giá 5%, 10%, 15%..." />
                     <button type="submit" class="btn btn-outline-primary fw-semibold">
                         <i class="bi bi-search me-1"></i> Tra cứu & Áp dụng
                     </button>
@@ -67,7 +67,7 @@
                 @if (Model.Invoice.MemberDiscountAmount > 0)
                 {
                     <div class="d-flex justify-content-between py-1 small text-success">
-                        <span>Giảm giá thẻ thành viên (@Model.Invoice.MembershipRank):</span>
+                        <span>Chiết khấu ưu đãi tự động (5%/10% &amp; ≥10 suất):</span>
                         <span class="fw-semibold">-@Model.Invoice.MemberDiscountAmount.ToString("N0") VNĐ</span>
                     </div>
                 }
@@ -123,7 +123,7 @@
                 <div id="cashSection" class="p-3 border rounded-3 bg-white mb-4">
                     <div class="mb-3">
                         <label asp-for="CashGiven" class="form-label small fw-semibold">Tiền khách đưa (VNĐ) *</label>
-                        <input asp-for="CashGiven" id="cashGivenInput" type="number" step="1000" class="form-control form-control-lg text-end fw-bold text-success" oninput="calculateChange()" />
+                        <input asp-for="CashGiven" id="cashGivenInput" type="number" min="0" step="1000" class="form-control form-control-lg text-end fw-bold text-success" oninput="calculateChange()" />
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">

@@ -30,13 +30,13 @@
                 <div class="row g-3 mb-3">
                     <div class="col-md-4">
                         <label asp-for="ItemCode" class="form-label small fw-semibold">Mã món (duy nhất) *</label>
-                        <input asp-for="ItemCode" class="form-control" placeholder="Ví dụ: M14, D05..." required />
+                        <input asp-for="ItemCode" class="form-control" maxlength="20" pattern="@RestaurantManagement.Common.Validation.ValidationRules.ItemCodePattern" title="@RestaurantManagement.Common.Validation.ValidationRules.ItemCodeErrorMessage" placeholder="Ví dụ: M14, D05..." required />
                         <span asp-validation-for="ItemCode" class="text-danger small"></span>
                     </div>
 
                     <div class="col-md-8">
                         <label asp-for="Name" class="form-label small fw-semibold">Tên món ăn / Đồ uống *</label>
-                        <input asp-for="Name" class="form-control" placeholder="Ví dụ: Gỏi hoa chuối bắp bò..." required />
+                        <input asp-for="Name" class="form-control" minlength="2" maxlength="120" placeholder="Ví dụ: Gỏi hoa chuối bắp bò..." required />
                         <span asp-validation-for="Name" class="text-danger small"></span>
                     </div>
                 </div>
@@ -53,7 +53,7 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label asp-for="Station" class="form-label small fw-semibold">Trạm chế biến bếp *</label>
+                        <label asp-for="Station" class="form-label small fw-semibold">Trạm chế biến in KOT *</label>
                         <select asp-for="Station" class="form-select">
                             <option value="@KitchenStation.HotKitchen">Bếp Nóng (Hot Kitchen)</option>
                             <option value="@KitchenStation.ColdKitchen">Bếp Lạnh (Cold Kitchen)</option>

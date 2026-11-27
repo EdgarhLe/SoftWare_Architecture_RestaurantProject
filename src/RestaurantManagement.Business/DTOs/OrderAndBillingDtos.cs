@@ -75,7 +75,9 @@ public record PreBillDto(
     decimal VatAmount,
     decimal DiscountAmount,
     decimal DepositDeducted,
-    decimal FinalAmount
+    decimal FinalAmount,
+    int OrderId = 0,
+    int TableId = 0
 );
 
 public record PrepareInvoiceDto(
@@ -108,12 +110,16 @@ public record InvoiceDto(
     decimal? CashReceived,
     decimal? ChangeAmount,
     string? VietQrContent,
-    string StaffName
+    string StaffName,
+    int TableId = 0,
+    string? VoidReason = null,
+    DateTime? VoidedAtUtc = null
 );
 
 public record ProcessPaymentDto(
     int InvoiceId,
     int CashierStaffId,
     PaymentMethod PaymentMethod,
-    decimal CashReceived = 0
+    decimal CashReceived = 0,
+    string? CustomerPhoneNumber = null
 );

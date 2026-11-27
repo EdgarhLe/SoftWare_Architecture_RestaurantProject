@@ -42,6 +42,11 @@ public class EmployeeController : Controller
             ModelState.AddModelError("Password", "Mật khẩu cho nhân viên mới không được để trống.");
         }
 
+        if (model.Role == Common.Enums.StaffRole.Manager && string.IsNullOrWhiteSpace(model.ManagerPin))
+        {
+            ModelState.AddModelError("ManagerPin", "Tài khoản Quản lý phải thiết lập mã PIN phê duyệt (4-6 chữ số).");
+        }
+
         if (!ModelState.IsValid)
             return View(model);
 

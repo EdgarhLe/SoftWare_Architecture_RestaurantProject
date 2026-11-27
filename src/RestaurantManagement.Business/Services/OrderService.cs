@@ -82,8 +82,8 @@ public class OrderService : IOrderService
 
     public async Task<Result<OrderItemDto>> AddOrderItemAsync(AddOrderItemDto dto, CancellationToken cancellationToken = default)
     {
-        if (dto.Quantity <= 0)
-            return Result<OrderItemDto>.Failure(Error.Validation("Item.InvalidQuantity", "Số lượng món phải lớn hơn 0."));
+        if (dto.Quantity <= 0 || dto.Quantity > 50)
+            return Result<OrderItemDto>.Failure(Error.Validation("Item.InvalidQuantity", "Số lượng món phải từ 1 đến 50."));
 
         var order = await _uow.Orders.GetAll()
             .Include(o => o.OrderDetails)
@@ -277,9 +277,12 @@ public class OrderService : IOrderService
 
         if (detail.Status == OrderItemStatus.Ready || detail.Status == OrderItemStatus.Cooking)
         {
+            if (string.IsNullOrWhiteSpace(dto.ManagerPin))
+                return Result.Failure(Error.Validation("Auth.PinRequired", "Món ăn đã được gửi chế biến. Cần mã PIN Quản lý để phê duyệt đổi món."));
+
             var isPinValid = await ValidateManagerPinAsync(dto.ManagerPin, cancellationToken);
             if (!isPinValid)
-                return Result.Failure(Error.Validation("Auth.InvalidPin", "Món ăn đã được gửi chế biến. Cần mã PIN Quản lý để phê duyệt đổi món."));
+                return Result.Failure(Error.Validation("Auth.InvalidPin", "Mã PIN Quản lý không chính xác. Không thể phê duyệt đổi món."));
         }
 
         var newMenuItem = await _uow.MenuItems.GetByIdAsync(dto.NewMenuItemId, cancellationToken);
@@ -427,7 +430,9 @@ public class OrderService : IOrderService
             vatAmount,
             0,
             depositDeducted,
-            BillingCalculator.Round(finalAmount)
+            BillingCalculator.Round(finalAmount),
+            order.Id,
+            order.TableId
         ));
     }
 

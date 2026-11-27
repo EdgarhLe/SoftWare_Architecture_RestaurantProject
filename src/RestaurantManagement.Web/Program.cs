@@ -17,6 +17,7 @@ builder.Services.AddSession(options =>
 
 // Business Layer Registration (which registers DataAccess & DbContext internally)
 builder.Services.AddBusinessLayer(builder.Configuration);
+builder.Services.AddHostedService<RestaurantManagement.Web.Services.BookingExpirationBackgroundService>();
 
 // Cookie Authentication
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

@@ -37,6 +37,7 @@ public class DatabaseSeedAndIntegrationTests
             .Build();
 
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddBusinessLayer(configuration);
 
         _serviceProvider = services.BuildServiceProvider();
@@ -139,13 +140,18 @@ public class DatabaseSeedAndIntegrationTests
         var boLucLac = await dbContext.MenuItems.FirstAsync(m => m.ItemCode == "M04"); // Món chính - Hot
         var traSen = await dbContext.MenuItems.FirstAsync(m => m.ItemCode == "M12"); // Đồ uống - Bar
 
+        goiCuon.IsAvailable = true;
+        boLucLac.IsAvailable = true;
+        traSen.IsAvailable = true;
+        await dbContext.SaveChangesAsync();
+
         var addItem1 = await orderService.AddOrderItemAsync(new AddOrderItemDto(order.Id, goiCuon.Id, 2, "Ít cay"));
         var addItem2 = await orderService.AddOrderItemAsync(new AddOrderItemDto(order.Id, boLucLac.Id, 2, "Chín vừa"));
         var addItem3 = await orderService.AddOrderItemAsync(new AddOrderItemDto(order.Id, traSen.Id, 4, "Ít đá"));
 
-        Assert.True(addItem1.IsSuccess);
-        Assert.True(addItem2.IsSuccess);
-        Assert.True(addItem3.IsSuccess);
+        Assert.True(addItem1.IsSuccess, $"addItem1 failed: {addItem1.Error?.Code} - {addItem1.Error?.Description}");
+        Assert.True(addItem2.IsSuccess, $"addItem2 failed: {addItem2.Error?.Code} - {addItem2.Error?.Description}");
+        Assert.True(addItem3.IsSuccess, $"addItem3 failed: {addItem3.Error?.Code} - {addItem3.Error?.Description}");
 
         // 8. Bấm gửi bếp in KOT (BM01)
         var kotResult = await orderService.SendToKitchenAsync(order.Id);
