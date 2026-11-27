@@ -120,12 +120,19 @@ public class ShiftService : IShiftService
                     $"Phát hiện chênh lệch két tiền mặt ({difference:N0}đ so với lý thuyết {theoreticalCash:N0}đ). Bắt buộc phải nhập giải trình lý do chênh lệch."));
             }
 
+            if (string.IsNullOrWhiteSpace(dto.ManagerPin))
+            {
+                return Result<ShiftSessionDto>.Failure(Error.Validation(
+                    "Auth.PinRequired",
+                    "Chênh lệch két quỹ ca trực bắt buộc phải được Quản lý kiểm tra và nhập mã PIN xác thực để đóng ca."));
+            }
+
             var manager = await ValidateAndGetManagerAsync(dto.ManagerPin, cancellationToken);
             if (manager == null)
             {
                 return Result<ShiftSessionDto>.Failure(Error.Validation(
                     "Auth.InvalidPin",
-                    "Chênh lệch két quỹ ca trực bắt buộc phải được Quản lý kiểm tra và nhập mã PIN xác thực để đóng ca."));
+                    "Mã PIN Quản lý không chính xác. Không thể phê duyệt đóng ca chênh lệch quỹ."));
             }
             approvedById = manager.Id;
         }

@@ -17,13 +17,13 @@ public static partial class ValidationRules
     public const string EmailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
     public const string EmailErrorMessage = "Địa chỉ email không hợp lệ (ví dụ: example@gmail.com).";
 
-    public const string StaffCodePattern = @"^[A-Za-z0-9_-]{2,20}$";
+    public const string StaffCodePattern = @"^[A-Za-z0-9_\-]{2,20}$";
     public const string StaffCodeErrorMessage = "Mã nhân viên từ 2 đến 20 ký tự, chỉ gồm chữ cái, số, dấu '-' hoặc '_'.";
 
-    public const string UsernamePattern = @"^[a-zA-Z0-9._-]{3,30}$";
+    public const string UsernamePattern = @"^[a-zA-Z0-9._\-]{3,30}$";
     public const string UsernameErrorMessage = "Tên đăng nhập từ 3 đến 30 ký tự, chỉ gồm chữ, số, '.', '_', '-'.";
 
-    public const string ItemCodePattern = @"^[A-Za-z0-9_-]{2,20}$";
+    public const string ItemCodePattern = @"^[A-Za-z0-9_\-]{2,20}$";
     public const string ItemCodeErrorMessage = "Mã món từ 2 đến 20 ký tự, chỉ gồm chữ cái, số, dấu '-' hoặc '_'.";
 
     public const string ManagerPinPattern = @"^\d{4,6}$";

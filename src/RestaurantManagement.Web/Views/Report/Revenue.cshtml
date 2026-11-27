@@ -82,7 +82,8 @@
                         <th class="text-end">Tiền Món</th>
                         <th class="text-end">Phụ Thu</th>
                         <th class="text-end">Thuế VAT (8%)</th>
-                        <th class="text-end">Giảm Giá</th>
+                        <th class="text-end">Chiết Khấu</th>
+                        <th class="text-end">Trừ Cọc</th>
                         <th class="text-end fw-bold">Thực Thu</th>
                     </tr>
                 </thead>
@@ -96,6 +97,7 @@
                             <td class="text-end text-danger">@(d.SurchargeAmount > 0 ? $"+{d.SurchargeAmount:N0} đ" : "-")</td>
                             <td class="text-end">@d.VatAmount.ToString("N0") đ</td>
                             <td class="text-end text-success">@(d.DiscountAmount > 0 ? $"-{d.DiscountAmount:N0} đ" : "-")</td>
+                            <td class="text-end text-primary">@(d.DepositDeducted > 0 ? $"-{d.DepositDeducted:N0} đ" : "-")</td>
                             <td class="text-end fw-bold text-danger">@d.FinalAmount.ToString("N0") đ</td>
                         </tr>
                     }
@@ -108,6 +110,7 @@
                         <th class="text-end text-danger">+@r.SurchargeTotal.ToString("N0") đ</th>
                         <th class="text-end">@r.VatTotal.ToString("N0") đ</th>
                         <th class="text-end text-success">-@r.DiscountTotal.ToString("N0") đ</th>
+                        <th class="text-end text-primary">-@r.DepositTotal.ToString("N0") đ</th>
                         <th class="text-end text-danger fs-5">@r.NetTotal.ToString("N0") VNĐ</th>
                     </tr>
                 </tfoot>

@@ -17,6 +17,7 @@ public interface ITableService
     Task<Result<OrderDto>> CheckInBookingAsync(CheckInBookingDto dto, CancellationToken cancellationToken = default);
     Task<Result> CompleteCleaningAsync(int tableId, CancellationToken cancellationToken = default);
     Task<Result> UpdateTableStatusAsync(int tableId, TableStatus newStatus, CancellationToken cancellationToken = default);
+    Task<Result> SetTableMaintenanceAsync(int tableId, bool isMaintenance, string? reason, int staffId, CancellationToken cancellationToken = default);
 }
 
 public class TableService : ITableService
@@ -308,6 +309,59 @@ public class TableService : ITableService
             return Result.Failure(Error.NotFound("Table.NotFound", "Không tìm thấy bàn."));
 
         table.Status = newStatus;
+        await _uow.SaveChangesAsync(cancellationToken);
+        return Result.Success();
+    }
+
+    public async Task<Result> SetTableMaintenanceAsync(int tableId, bool isMaintenance, string? reason, int staffId, CancellationToken cancellationToken = default)
+    {
+        var table = await _uow.Tables.GetByIdAsync(tableId, cancellationToken);
+        if (table == null)
+            return Result.Failure(Error.NotFound("Table.NotFound", "Không tìm thấy bàn."));
+
+        var nowUtc = DateTime.UtcNow;
+
+        if (isMaintenance)
+        {
+            if (table.Status != TableStatus.Available && table.Status != TableStatus.Cleaning)
+                return Result.Failure(Error.Validation("Table.InvalidStatusForMaintenance", $"Chỉ có thể chuyển bảo trì khi bàn {table.TableNumber} đang Trống hoặc Đang dọn dẹp."));
+
+            var hasFutureBooking = await _uow.Bookings.GetAll()
+                .AnyAsync(b => b.TableId == tableId
+                            && (b.Status == BookingStatus.Confirmed || (b.Status == BookingStatus.PendingPayment && b.HoldExpiresAt > nowUtc))
+                            && b.EndTime >= nowUtc, cancellationToken);
+
+            if (hasFutureBooking)
+                return Result.Failure(Error.Conflict("Table.HasUpcomingBooking", $"Bàn {table.TableNumber} đang có lịch đặt trước sắp tới, không thể chuyển sang bảo trì."));
+
+            table.Status = TableStatus.OutOfService;
+
+            await _uow.AuditLogs.AddAsync(new AuditLog
+            {
+                Action = "SetTableMaintenance",
+                EntityName = "DiningTables",
+                EntityId = table.Id.ToString(),
+                Details = $"Chuyển bàn {table.TableNumber} sang Bảo trì. Lý do: {reason ?? "Không có"}",
+                CreatedAt = nowUtc
+            }, cancellationToken);
+        }
+        else
+        {
+            if (table.Status != TableStatus.OutOfService)
+                return Result.Failure(Error.Validation("Table.NotOutOfService", $"Bàn {table.TableNumber} không ở trạng thái Bảo trì."));
+
+            table.Status = TableStatus.Available;
+
+            await _uow.AuditLogs.AddAsync(new AuditLog
+            {
+                Action = "CompleteTableMaintenance",
+                EntityName = "DiningTables",
+                EntityId = table.Id.ToString(),
+                Details = $"Hoàn tất bảo trì bàn {table.TableNumber}, đưa về trạng thái Trống.",
+                CreatedAt = nowUtc
+            }, cancellationToken);
+        }
+
         await _uow.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }

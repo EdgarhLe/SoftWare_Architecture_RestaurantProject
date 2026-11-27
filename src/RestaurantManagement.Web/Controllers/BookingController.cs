@@ -65,6 +65,9 @@ public class BookingController : Controller
             }
         }
 
+        var floorPlan = await _tableService.GetFloorPlanAsync();
+        ViewBag.Areas = floorPlan.Select(a => (a.AreaId, a.AreaName)).ToList();
+
         return View(model);
     }
 
@@ -72,6 +75,9 @@ public class BookingController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Search(SearchAvailableTablesViewModel model)
     {
+        var floorPlan = await _tableService.GetFloorPlanAsync();
+        ViewBag.Areas = floorPlan.Select(a => (a.AreaId, a.AreaName)).ToList();
+
         if (!ModelState.IsValid)
             return View(model);
 
@@ -82,13 +88,14 @@ public class BookingController : Controller
             model.PreferredAreaId
         ));
 
-        model.HasSearched = true;
         if (result.IsSuccess)
         {
+            model.HasSearched = true;
             model.AvailableTables = result.Value;
         }
         else
         {
+            model.HasSearched = false;
             ModelState.AddModelError(string.Empty, result.Error?.Description ?? "Không tìm thấy bàn phù hợp.");
         }
 

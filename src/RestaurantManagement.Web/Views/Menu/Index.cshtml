@@ -19,7 +19,7 @@
 <div class="card card-senviet p-3 mb-4">
     <div class="d-flex flex-wrap gap-1">
         <a asp-action="Index" class="btn btn-sm @(Model.SelectedCategoryId == null ? "btn-danger" : "btn-light border")">
-            Tất cả danh mục (@Model.Items.Count)
+            Tất cả danh mục (@Model.Categories.Sum(c => c.ItemCount))
         </a>
         @foreach (var cat in Model.Categories)
         {
@@ -113,7 +113,7 @@
 
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Mã PIN Quản lý (xác thực) *</label>
-                        <input type="password" name="ManagerPin" class="form-control" placeholder="Nhập PIN (1234)..." required />
+                        <input type="password" name="ManagerPin" class="form-control" placeholder="Nhập mã PIN Quản lý..." required />
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">

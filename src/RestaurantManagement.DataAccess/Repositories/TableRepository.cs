@@ -19,11 +19,14 @@ public class TableRepository : Repository<DiningTable>, ITableRepository
 
     public async Task<DiningTable?> GetForUpdateAsync(int tableId, CancellationToken cancellationToken = default)
     {
-        // Khóa bi quan ở mức bản ghi hàng trên PostgreSQL
+        // Khóa bi quan ở mức bản ghi hàng trên PostgreSQL (bên trong transaction đang mở)
+        await _context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM dining_tables WHERE id = {tableId} FOR UPDATE",
+            cancellationToken);
+
         return await _context.DiningTables
-            .FromSqlInterpolated($"SELECT * FROM dining_tables WHERE id = {tableId} FOR UPDATE")
             .Include(t => t.Area)
-            .SingleOrDefaultAsync(cancellationToken);
+            .SingleOrDefaultAsync(t => t.Id == tableId, cancellationToken);
     }
 
     public async Task<IReadOnlyList<DiningTable>> GetTablesWithAreaAsync(CancellationToken cancellationToken = default)

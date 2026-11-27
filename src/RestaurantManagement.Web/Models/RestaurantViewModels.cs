@@ -84,6 +84,8 @@ public class ChangeOrderItemViewModel
     public int OrderDetailId { get; set; }
     public int OrderId { get; set; }
     public int NewMenuItemId { get; set; }
+    [Range(1, 50, ErrorMessage = "Số lượng mới từ 1 đến 50")]
+    public int NewQuantity { get; set; } = 1;
     public string Reason { get; set; } = string.Empty;
     public string ManagerPin { get; set; } = string.Empty;
 }
@@ -93,6 +95,7 @@ public class ReturnOrderItemViewModel
     public int OrderDetailId { get; set; }
     public int OrderId { get; set; }
     public int ReturnQuantity { get; set; }
+    public bool RestaurantFault { get; set; } = true;
     public string Reason { get; set; } = string.Empty;
     public string ManagerPin { get; set; } = string.Empty;
 }
@@ -127,7 +130,7 @@ public class CashDenominationInput
 
 public class CloseShiftViewModel
 {
-    public ShiftSessionDto Shift { get; set; } = null!;
+    public ShiftSessionDto? Shift { get; set; }
     public List<CashDenominationInput> Denominations { get; set; } = new();
 
     public decimal TotalCashCounted => Denominations?.Sum(d => d.Total) ?? 0;

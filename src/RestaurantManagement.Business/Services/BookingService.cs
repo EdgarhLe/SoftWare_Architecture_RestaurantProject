@@ -21,6 +21,7 @@ public interface IBookingService
     Task<Result<CancelBookingResultDto>> CancelBookingAsync(CancelBookingDto dto, CancellationToken cancellationToken = default);
     Task<List<BookingConfirmationDto>> GetTodayBookingsAsync(CancellationToken cancellationToken = default);
     Task<List<BookingConfirmationDto>> GetBookingsByDateAsync(DateOnly date, CancellationToken cancellationToken = default);
+    Task<int> ExpirePendingBookingsAsync(CancellationToken cancellationToken = default);
 }
 
 public class BookingService : IBookingService
@@ -167,49 +168,48 @@ public class BookingService : IBookingService
                 "Chỉ hỗ trợ đặt bàn trước tối đa 365 ngày."));
         }
 
-        var table = await _uow.Tables.GetAll()
-            .Include(t => t.Area)
-            .FirstOrDefaultAsync(t => t.Id == dto.TableId, cancellationToken);
-
-        if (table == null)
-            return Result<BookingConfirmationDto>.Failure(Error.NotFound("Table.NotFound", "Bàn đã chọn không tồn tại."));
-
-        if (table.Status == TableStatus.OutOfService)
-            return Result<BookingConfirmationDto>.Failure(Error.Validation("Table.OutOfService", $"Bàn {table.TableNumber} đang tạm ngưng phục vụ để bảo trì."));
-
-        if (dto.GuestCount > table.Capacity)
-            return Result<BookingConfirmationDto>.Failure(Error.Validation("Table.OverCapacity", $"Số lượng khách ({dto.GuestCount}) vượt quá sức chứa bàn ({table.Capacity})."));
-
-        var slotHours = _options.Booking.SlotHours;
-        var slotStartUtc = bookingDateTimeUtc.AddHours(-slotHours);
-        var slotEndUtc = bookingDateTimeUtc.AddHours(slotHours);
-
-        var hasConflict = await _uow.Bookings.GetAll()
-            .AnyAsync(b => b.TableId == table.Id
-                        && (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.CheckedIn || (b.Status == BookingStatus.PendingPayment && b.HoldExpiresAt > nowUtc))
-                        && b.StartTime >= slotStartUtc
-                        && b.StartTime <= slotEndUtc, cancellationToken);
-
-        if (!hasConflict && bookingDateTimeUtc <= nowUtc.AddHours(slotHours))
-        {
-            var isCurrentlyOccupied = await _uow.Orders.GetAll().AnyAsync(o => o.TableId == table.Id && o.ClosedAt == null, cancellationToken);
-            if (isCurrentlyOccupied || table.Status == TableStatus.Occupied)
-            {
-                hasConflict = true;
-            }
-        }
-
-        if (hasConflict)
-        {
-            return Result<BookingConfirmationDto>.Failure(Error.Conflict(
-                "Booking.Conflict",
-                $"Bàn {table.TableNumber} đã có người đặt hoặc đang có khách phục vụ trong khung giờ này. Vui lòng chọn bàn khác hoặc khung giờ khác."));
-        }
-
         var depositAmount = _depositPolicy.CalculateDeposit(dto.GuestCount);
 
         return await _uow.ExecuteInTransactionAsync(async () =>
         {
+            // Khóa bi quan mức dòng trên bảng dining_tables (SELECT ... FOR UPDATE) để chống đặt trùng đồng thời
+            var table = await _uow.Tables.GetForUpdateAsync(dto.TableId, cancellationToken);
+
+            if (table == null)
+                return Result<BookingConfirmationDto>.Failure(Error.NotFound("Table.NotFound", "Bàn đã chọn không tồn tại."));
+
+            if (table.Status == TableStatus.OutOfService)
+                return Result<BookingConfirmationDto>.Failure(Error.Validation("Table.OutOfService", $"Bàn {table.TableNumber} đang tạm ngưng phục vụ để bảo trì."));
+
+            if (dto.GuestCount > table.Capacity)
+                return Result<BookingConfirmationDto>.Failure(Error.Validation("Table.OverCapacity", $"Số lượng khách ({dto.GuestCount}) vượt quá sức chứa bàn ({table.Capacity})."));
+
+            var slotHours = _options.Booking.SlotHours;
+            var slotStartUtc = bookingDateTimeUtc.AddHours(-slotHours);
+            var slotEndUtc = bookingDateTimeUtc.AddHours(slotHours);
+
+            var hasConflict = await _uow.Bookings.GetAll()
+                .AnyAsync(b => b.TableId == table.Id
+                            && (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.CheckedIn || (b.Status == BookingStatus.PendingPayment && b.HoldExpiresAt > nowUtc))
+                            && b.StartTime >= slotStartUtc
+                            && b.StartTime <= slotEndUtc, cancellationToken);
+
+            if (!hasConflict && bookingDateTimeUtc <= nowUtc.AddHours(slotHours))
+            {
+                var isCurrentlyOccupied = await _uow.Orders.GetAll().AnyAsync(o => o.TableId == table.Id && o.ClosedAt == null, cancellationToken);
+                if (isCurrentlyOccupied || table.Status == TableStatus.Occupied)
+                {
+                    hasConflict = true;
+                }
+            }
+
+            if (hasConflict)
+            {
+                return Result<BookingConfirmationDto>.Failure(Error.Conflict(
+                    "Booking.Conflict",
+                    $"Bàn {table.TableNumber} đã có người đặt hoặc đang có khách phục vụ trong khung giờ này. Vui lòng chọn bàn khác hoặc khung giờ khác."));
+            }
+
             var customer = await _uow.Customers.GetAll()
                 .FirstOrDefaultAsync(c => c.PhoneNumber == normalizedPhone, cancellationToken);
 
@@ -440,6 +440,25 @@ public class BookingService : IBookingService
             .ToListAsync(cancellationToken);
 
         return bookings.Select(b => MapToConfirmationDto(b)).ToList();
+    }
+
+    public async Task<int> ExpirePendingBookingsAsync(CancellationToken cancellationToken = default)
+    {
+        var nowUtc = DateTime.UtcNow;
+        var expiredBookings = await _uow.Bookings.GetAll()
+            .Where(b => b.Status == BookingStatus.PendingPayment && b.HoldExpiresAt <= nowUtc)
+            .ToListAsync(cancellationToken);
+
+        if (expiredBookings.Count == 0)
+            return 0;
+
+        foreach (var booking in expiredBookings)
+        {
+            booking.Status = BookingStatus.Expired;
+        }
+
+        await _uow.SaveChangesAsync(cancellationToken);
+        return expiredBookings.Count;
     }
 
     private static BookingConfirmationDto MapToConfirmationDto(

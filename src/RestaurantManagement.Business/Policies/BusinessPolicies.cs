@@ -81,12 +81,18 @@ public class BillingCalculator
         DateTime orderTimeUtc,
         MembershipRank rank = MembershipRank.Standard,
         decimal manualDiscountPercent = 0,
-        decimal depositAmount = 0)
+        decimal depositAmount = 0,
+        int totalQuantity = 0)
     {
-        // 1. Phụ thu cao điểm cuối tuần
+        // 1. Phụ thu cao điểm cuối tuần (18:00 - 21:00 T7/CN)
         var surcharge = _peakHourPolicy.IsPeakHour(orderTimeUtc) ? _rules.PeakSurcharge : 0m;
 
-        // 2. Chiết khấu thành viên trên tiền món
+        // 2. Chiết khấu ưu đãi tự động trên hóa đơn (theo tổng tiền món và số suất ăn)
+        var autoDiscountRate = itemsTotal >= 2_000_000m
+            ? 0.10m
+            : (itemsTotal >= 1_000_000m ? 0.05m : 0m);
+        var scaleDiscount = totalQuantity >= 10 ? 50_000m : 0m;
+
         var memberDiscountRate = rank switch
         {
             MembershipRank.Silver => _rules.MembershipDiscount.Silver,
@@ -95,16 +101,16 @@ public class BillingCalculator
             _ => 0m
         };
 
-        var totalDiscountRate = memberDiscountRate + manualDiscountPercent;
-        var discountAmount = Round(itemsTotal * totalDiscountRate);
+        var totalDiscountRate = autoDiscountRate + memberDiscountRate + manualDiscountPercent;
+        var discountAmount = Round(itemsTotal * totalDiscountRate + scaleDiscount);
+        discountAmount = Math.Min(discountAmount, itemsTotal + surcharge);
 
-        // 3. VAT (8%) trên (Tiền món + Phụ thu)
-        var taxableAmount = itemsTotal + surcharge;
+        // 3. Tiền chịu thuế & VAT (8%) trên (Tiền món + Phụ thu - Chiết khấu)
+        var taxableAmount = Math.Max(0, itemsTotal + surcharge - discountAmount);
         var vatAmount = Round(taxableAmount * _rules.VatRate);
 
-        // 4. Tổng trước cọc = (Tiền món + Phụ thu + VAT) - Giảm giá
-        var totalBeforeDeposit = (itemsTotal + surcharge + vatAmount) - discountAmount;
-        totalBeforeDeposit = Math.Max(0, totalBeforeDeposit);
+        // 4. Tổng trước cọc = Tiền chịu thuế + VAT
+        var totalBeforeDeposit = taxableAmount + vatAmount;
 
         // 5. Khấu trừ cọc
         var depositDeducted = Math.Min(depositAmount, totalBeforeDeposit);

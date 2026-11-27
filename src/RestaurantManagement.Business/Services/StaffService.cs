@@ -19,6 +19,7 @@ public interface IStaffService
     Task<Result<StaffDto>> CreateStaffAsync(CreateStaffDto dto, CancellationToken cancellationToken = default);
     Task<Result<StaffDto>> UpdateStaffAsync(UpdateStaffDto dto, CancellationToken cancellationToken = default);
     Task<Result<AttendanceDto>> CheckInAttendanceAsync(CheckInAttendanceDto dto, CancellationToken cancellationToken = default);
+    Task<Result<AttendanceDto>> CheckOutAttendanceAsync(int staffId, CancellationToken cancellationToken = default);
     Task<List<AttendanceDto>> GetAttendancesAsync(DateOnly? date = null, CancellationToken cancellationToken = default);
     Task<Result> ApproveAttendanceAsync(ApproveAttendanceDto dto, CancellationToken cancellationToken = default);
 }
@@ -279,6 +280,42 @@ public class StaffService : IStaffService
             attendance.LateMinutes,
             attendance.Note,
             null
+        ));
+    }
+
+    public async Task<Result<AttendanceDto>> CheckOutAttendanceAsync(int staffId, CancellationToken cancellationToken = default)
+    {
+        var staff = await _uow.Staffs.GetByIdAsync(staffId, cancellationToken);
+        if (staff == null)
+            return Result<AttendanceDto>.Failure(Error.NotFound("Staff.NotFound", "Không tìm thấy nhân viên."));
+
+        var nowUtc = DateTime.UtcNow;
+        var localNow = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, _timeZone);
+        var workDate = DateOnly.FromDateTime(localNow);
+
+        var attendance = await _uow.Attendances.GetAll()
+            .Include(a => a.ApprovedBy)
+            .FirstOrDefaultAsync(a => a.StaffId == staffId && a.WorkDate == workDate, cancellationToken);
+
+        if (attendance == null)
+            return Result<AttendanceDto>.Failure(Error.NotFound("Attendance.NotFound", "Chưa có bản ghi điểm danh vào ca hôm nay."));
+
+        attendance.CheckOutTime = nowUtc;
+        await _uow.SaveChangesAsync(cancellationToken);
+
+        return Result<AttendanceDto>.Success(new AttendanceDto(
+            attendance.Id,
+            staff.Id,
+            staff.StaffCode,
+            staff.FullName,
+            staff.Role,
+            attendance.WorkDate,
+            attendance.CheckInTime,
+            attendance.CheckOutTime,
+            attendance.IsLate,
+            attendance.LateMinutes,
+            attendance.Note,
+            attendance.ApprovedBy?.FullName
         ));
     }
 

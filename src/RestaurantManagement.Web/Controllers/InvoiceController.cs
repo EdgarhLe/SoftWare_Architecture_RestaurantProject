@@ -78,7 +78,8 @@ public class InvoiceController : Controller
             model.OrderId,
             staffId,
             model.PaymentMethod,
-            model.PaymentMethod == PaymentMethod.Cash ? model.CashGiven : model.FinalAmount
+            model.PaymentMethod == PaymentMethod.Cash ? model.CashGiven : model.FinalAmount,
+            model.CustomerPhone
         ));
 
         if (!result.IsSuccess)

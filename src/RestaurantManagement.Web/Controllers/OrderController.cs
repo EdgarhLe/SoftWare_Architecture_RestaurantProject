@@ -170,7 +170,7 @@ public class OrderController : Controller
         var result = await _orderService.ChangeOrderItemAsync(new ChangeOrderItemDto(
             model.OrderDetailId,
             model.NewMenuItemId,
-            1,
+            model.NewQuantity > 0 ? model.NewQuantity : 1,
             model.Reason,
             model.ManagerPin
         ));
@@ -200,7 +200,7 @@ public class OrderController : Controller
         var result = await _orderService.ReturnOrderItemAsync(new ReturnOrderItemDto(
             model.OrderDetailId,
             model.Reason,
-            RestaurantFault: true,
+            RestaurantFault: model.RestaurantFault,
             ManagerPin: model.ManagerPin
         ));
 

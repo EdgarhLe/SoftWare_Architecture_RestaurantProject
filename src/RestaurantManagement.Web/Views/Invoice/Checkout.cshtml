@@ -8,7 +8,7 @@
         <h3 class="fw-bold mb-1 brand-serif">Thanh Toán & Lập Hóa Đơn (BM05)</h3>
         <p class="text-muted small mb-0">Thu ngân kiểm tra giảm giá thành viên, phụ thu cao điểm và thu tiền</p>
     </div>
-    <a asp-controller="Order" asp-action="Table" asp-route-tableId="@Model.OrderId" class="btn btn-outline-secondary">
+    <a asp-controller="Order" asp-action="Table" asp-route-tableId="@Model.Invoice!.TableId" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i> Quay lại order bàn
     </a>
 </div>
@@ -67,7 +67,7 @@
                 @if (Model.Invoice.MemberDiscountAmount > 0)
                 {
                     <div class="d-flex justify-content-between py-1 small text-success">
-                        <span>Giảm giá thẻ thành viên (@Model.Invoice.MembershipRank):</span>
+                        <span>Chiết khấu ưu đãi tự động (5%/10% &amp; ≥10 suất):</span>
                         <span class="fw-semibold">-@Model.Invoice.MemberDiscountAmount.ToString("N0") VNĐ</span>
                     </div>
                 }

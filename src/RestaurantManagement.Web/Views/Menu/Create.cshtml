@@ -30,7 +30,7 @@
                 <div class="row g-3 mb-3">
                     <div class="col-md-4">
                         <label asp-for="ItemCode" class="form-label small fw-semibold">Mã món (duy nhất) *</label>
-                        <input asp-for="ItemCode" class="form-control" maxlength="20" pattern="^[A-Za-z0-9_-]{2,20}$" title="@RestaurantManagement.Common.Validation.ValidationRules.ItemCodeErrorMessage" placeholder="Ví dụ: M14, D05..." required />
+                        <input asp-for="ItemCode" class="form-control" maxlength="20" pattern="@RestaurantManagement.Common.Validation.ValidationRules.ItemCodePattern" title="@RestaurantManagement.Common.Validation.ValidationRules.ItemCodeErrorMessage" placeholder="Ví dụ: M14, D05..." required />
                         <span asp-validation-for="ItemCode" class="text-danger small"></span>
                     </div>
 

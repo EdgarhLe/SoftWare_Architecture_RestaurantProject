@@ -7,7 +7,8 @@ public record DailyRevenueDto(
     decimal SurchargeAmount,
     decimal VatAmount,
     decimal DiscountAmount,
-    decimal FinalAmount
+    decimal FinalAmount,
+    decimal DepositDeducted = 0
 );
 
 public record RevenueReportDto(
@@ -21,7 +22,8 @@ public record RevenueReportDto(
     decimal NetTotal,
     decimal CashTotal,
     decimal TransferTotal,
-    List<DailyRevenueDto> DailyBreakdown
+    List<DailyRevenueDto> DailyBreakdown,
+    decimal DepositTotal = 0
 );
 
 public record MenuItemSalesDto(

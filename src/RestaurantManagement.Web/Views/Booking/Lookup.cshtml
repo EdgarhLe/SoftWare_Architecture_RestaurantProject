@@ -42,7 +42,7 @@
                 <div class="d-flex justify-content-between align-items-start mb-3 pb-2 border-bottom">
                     <div>
                         <h4 class="fw-bold mb-1 text-dark">Mã Đặt Bàn: @b.BookingCode</h4>
-                        <span class="text-muted small">Thời gian tạo: @b.BookingDateTimeUtc.ToLocalTime().ToString("HH:mm:ss dd/MM/yyyy")</span>
+                        <span class="text-muted small">Giờ hẹn dùng bữa: @b.BookingDateTimeUtc.ToLocalTime().ToString("HH:mm dd/MM/yyyy")</span>
                     </div>
                     <span class="badge @(b.Status == BookingStatus.Confirmed ? "bg-success fs-6" : b.Status == BookingStatus.Cancelled ? "bg-danger fs-6" : "bg-warning text-dark fs-6")">
                         @(b.Status switch
@@ -80,7 +80,14 @@
                         <strong class="text-success fs-5">@b.DepositAmount.ToString("N0") VNĐ</strong>
                     </div>
                     <small class="text-muted">
-                        Tiền cọc này sẽ được trừ thẳng vào hóa đơn khi quý khách đến dùng bữa tại nhà hàng.
+                        @if (b.Status == BookingStatus.Cancelled || b.Status == BookingStatus.Expired)
+                        {
+                            <span>Đơn đặt bàn này đã hủy hoặc hết hạn. Tiền hoàn cọc (nếu đủ điều kiện) được xử lý tự động theo chính sách hoàn tiền.</span>
+                        }
+                        else
+                        {
+                            <span>Tiền cọc này sẽ được trừ thẳng vào hóa đơn khi quý khách đến dùng bữa tại nhà hàng.</span>
+                        }
                     </small>
                 </div>
 

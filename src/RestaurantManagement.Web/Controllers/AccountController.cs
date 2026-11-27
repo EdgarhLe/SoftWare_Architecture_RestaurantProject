@@ -91,6 +91,25 @@ public class AccountController : Controller
     [HttpPost]
     [Authorize]
     [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CheckOutShift()
+    {
+        var staffId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var result = await _staffService.CheckOutAttendanceAsync(staffId);
+        if (!result.IsSuccess)
+        {
+            TempData["ErrorMessage"] = result.Error?.Description ?? "Không thể chấm công kết ca.";
+        }
+        else
+        {
+            TempData["SuccessMessage"] = $"Đã ghi nhận giờ kết ca lúc {result.Value.CheckOutTime?.ToLocalTime():HH:mm:ss dd/MM/yyyy}.";
+        }
+
+        return RedirectToAction("Index", "Floor");
+    }
+
+    [HttpPost]
+    [Authorize]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);

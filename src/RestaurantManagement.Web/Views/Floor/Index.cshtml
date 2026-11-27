@@ -244,6 +244,7 @@
                                         <form asp-action="CheckInBooking" method="post" class="w-100">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="BookingId" value="@table.ActiveBookingId.Value" />
+                                            <input type="hidden" name="TableId" value="@table.Id" />
                                             <input type="hidden" name="TableCode" value="@table.TableNumber" />
                                             <input type="hidden" name="CustomerName" value="@table.BookingCustomer" />
                                             <button type="submit" class="btn btn-sm btn-primary w-100 fw-semibold">
@@ -279,6 +280,18 @@
                                         <i class="bi bi-calendar-plus me-1"></i> Nhận đặt bàn
                                     </a>
                                 }
+                                @if (User.IsInRole(nameof(StaffRole.Manager)) && Model.IsToday)
+                                {
+                                    <form asp-action="SetMaintenance" method="post" class="w-100">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="tableId" value="@table.Id" />
+                                        <input type="hidden" name="isMaintenance" value="true" />
+                                        <input type="hidden" name="reason" value="Bảo trì kỹ thuật bàn ăn" />
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                                            <i class="bi bi-tools me-1"></i> Báo bảo trì
+                                        </button>
+                                    </form>
+                                }
                             }
                             else if (isCleaning)
                             {
@@ -289,6 +302,38 @@
                                         <i class="bi bi-check-lg me-1"></i> Đã dọn xong
                                     </button>
                                 </form>
+                                @if (User.IsInRole(nameof(StaffRole.Manager)))
+                                {
+                                    <form asp-action="SetMaintenance" method="post" class="w-100">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="tableId" value="@table.Id" />
+                                        <input type="hidden" name="isMaintenance" value="true" />
+                                        <input type="hidden" name="reason" value="Bảo trì kỹ thuật bàn ăn" />
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                                            <i class="bi bi-tools me-1"></i> Báo bảo trì
+                                        </button>
+                                    </form>
+                                }
+                            }
+                            else if (table.Status == TableStatus.OutOfService)
+                            {
+                                @if (User.IsInRole(nameof(StaffRole.Manager)))
+                                {
+                                    <form asp-action="SetMaintenance" method="post" class="w-100">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="tableId" value="@table.Id" />
+                                        <input type="hidden" name="isMaintenance" value="false" />
+                                        <button type="submit" class="btn btn-sm btn-secondary w-100 fw-semibold">
+                                            <i class="bi bi-wrench-adjustable me-1"></i> Hoàn tất bảo trì
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-secondary w-100" disabled>
+                                        <i class="bi bi-tools me-1"></i> Đang bảo trì
+                                    </button>
+                                }
                             }
                         </div>
                     </div>

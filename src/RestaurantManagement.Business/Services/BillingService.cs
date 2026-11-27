@@ -58,6 +58,7 @@ public class BillingService : IBillingService
 
         var activeDetails = order.OrderDetails.Where(d => d.Status != OrderItemStatus.Cancelled).ToList();
         var itemsTotal = activeDetails.Sum(d => d.SubTotal);
+        var totalQuantity = activeDetails.Sum(d => d.Quantity);
 
         Customer? customer = null;
         var phone = dto.CustomerPhoneNumber?.Trim();
@@ -80,7 +81,8 @@ public class BillingService : IBillingService
             order.CreatedAt,
             rank,
             dto.ManualDiscountPercent,
-            deposit
+            deposit,
+            totalQuantity
         );
 
         var existingInvoice = await _uow.Invoices.GetAll()
@@ -117,7 +119,8 @@ public class BillingService : IBillingService
             null,
             null,
             vietQrContent,
-            order.CreatedBy.FullName
+            order.CreatedBy.FullName,
+            order.TableId
         ));
     }
 
@@ -160,11 +163,20 @@ public class BillingService : IBillingService
 
         var activeDetails = order.OrderDetails.Where(d => d.Status != OrderItemStatus.Cancelled).ToList();
         var itemsTotal = activeDetails.Sum(d => d.SubTotal);
-        var customer = order.Booking?.Customer;
+        var totalQuantity = activeDetails.Sum(d => d.Quantity);
+
+        Customer? customer = order.Booking?.Customer;
+        if (!string.IsNullOrWhiteSpace(dto.CustomerPhoneNumber))
+        {
+            var matchedCustomer = await _uow.Customers.GetAll()
+                .FirstOrDefaultAsync(c => c.PhoneNumber == dto.CustomerPhoneNumber.Trim(), cancellationToken);
+            if (matchedCustomer != null) customer = matchedCustomer;
+        }
+
         var rank = customer?.Rank ?? MembershipRank.Standard;
         var deposit = order.Booking?.DepositAmount ?? 0m;
 
-        var breakdown = _billingCalculator.Calculate(itemsTotal, order.CreatedAt, rank, 0, deposit);
+        var breakdown = _billingCalculator.Calculate(itemsTotal, order.CreatedAt, rank, 0, deposit, totalQuantity);
 
         if (dto.PaymentMethod == PaymentMethod.Cash && dto.CashReceived < breakdown.FinalAmount)
         {
@@ -242,7 +254,8 @@ public class BillingService : IBillingService
                 newInvoice.CashReceived,
                 newInvoice.ChangeAmount,
                 null,
-                cashier.FullName
+                cashier.FullName,
+                order.TableId
             ));
         }, cancellationToken);
     }
@@ -287,7 +300,10 @@ public class BillingService : IBillingService
             invoice.CashReceived,
             invoice.ChangeAmount,
             null,
-            invoice.Staff?.FullName ?? "Thu ngân"
+            invoice.Staff?.FullName ?? "Thu ngân",
+            invoice.Order.TableId,
+            invoice.VoidReason,
+            invoice.VoidedAt
         ));
     }
 
@@ -306,16 +322,23 @@ public class BillingService : IBillingService
 
     public async Task<Result> CancelInvoiceAsync(int invoiceId, string reason, string managerPin, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(managerPin))
+            return Result.Failure(Error.Validation("Auth.PinRequired", "Cần mã PIN Quản lý hợp lệ để hủy hóa đơn."));
+
         var isPinValid = await ValidateManagerPinAsync(managerPin, cancellationToken);
         if (!isPinValid)
-            return Result.Failure(Error.Validation("Auth.InvalidPin", "Cần mã PIN Quản lý hợp lệ để hủy hóa đơn."));
+            return Result.Failure(Error.Validation("Auth.InvalidPin", "Mã PIN Quản lý không chính xác. Không thể hủy hóa đơn."));
 
         var invoice = await _uow.Invoices.GetAll()
             .Include(i => i.Order)
+                .ThenInclude(o => o.Table)
             .FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
 
         if (invoice == null)
             return Result.Failure(Error.NotFound("Invoice.NotFound", "Không tìm thấy hóa đơn."));
+
+        if (invoice.Status == InvoiceStatus.Voided)
+            return Result.Failure(Error.Validation("Invoice.AlreadyVoided", "Hóa đơn này đã bị hủy trước đó."));
 
         return await _uow.ExecuteInTransactionAsync(async () =>
         {
@@ -323,10 +346,11 @@ public class BillingService : IBillingService
             invoice.VoidReason = reason;
             invoice.VoidedAt = DateTime.UtcNow;
 
-            if (invoice.Order != null)
+            if (invoice.Order != null && invoice.Order.Table != null && invoice.Order.Table.Status == TableStatus.Cleaning)
             {
                 invoice.Order.ClosedAt = null;
                 invoice.Order.Status = TableStatus.Occupied;
+                invoice.Order.Table.Status = TableStatus.Occupied;
             }
 
             await _uow.AuditLogs.AddAsync(new AuditLog

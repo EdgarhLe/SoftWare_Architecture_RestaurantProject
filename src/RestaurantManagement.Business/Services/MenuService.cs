@@ -174,6 +174,16 @@ public class MenuService : IMenuService
         var oldPrice = item.Price;
         var nowUtc = DateTime.UtcNow;
 
+        if (oldPrice != dto.Price)
+        {
+            if (string.IsNullOrWhiteSpace(dto.ManagerPin))
+                return Result<MenuItemDto>.Failure(Error.Validation("Auth.PinRequired", "Thay đổi đơn giá bán bắt buộc phải nhập mã PIN Quản lý xác nhận."));
+
+            var isPinValid = await ValidateManagerPinAsync(dto.ManagerPin, cancellationToken);
+            if (!isPinValid)
+                return Result<MenuItemDto>.Failure(Error.Validation("Auth.InvalidPin", "Mã PIN Quản lý không chính xác. Không thể cập nhật đơn giá."));
+        }
+
         return await _uow.ExecuteInTransactionAsync(async () =>
         {
             if (oldPrice != dto.Price)
@@ -234,9 +244,12 @@ public class MenuService : IMenuService
         if (dto.NewPrice < 1000 || dto.NewPrice > 100_000_000)
             return Result.Failure(Error.Validation("MenuItem.InvalidPrice", "Giá niêm yết mới phải từ 1.000đ đến 100.000.000đ."));
 
+        if (string.IsNullOrWhiteSpace(dto.ManagerPin))
+            return Result.Failure(Error.Validation("Auth.PinRequired", "Cần mã PIN Quản lý để phê duyệt điều chỉnh giá niêm yết."));
+
         var isPinValid = await ValidateManagerPinAsync(dto.ManagerPin, cancellationToken);
         if (!isPinValid)
-            return Result.Failure(Error.Validation("Auth.InvalidPin", "Cần mã PIN Quản lý để phê duyệt điều chỉnh giá niêm yết."));
+            return Result.Failure(Error.Validation("Auth.InvalidPin", "Mã PIN Quản lý không chính xác. Không thể điều chỉnh giá niêm yết."));
 
         var oldPrice = item.Price;
         var nowUtc = DateTime.UtcNow;

@@ -60,7 +60,8 @@
                         <th>Mã NV</th>
                         <th>Họ và Tên</th>
                         <th>Vai Trò</th>
-                        <th>Giờ Chấm Công</th>
+                        <th>Giờ Vào Ca</th>
+                        <th>Giờ Ra Về</th>
                         <th>Tình Trạng</th>
                         <th>Ghi Chú</th>
                         <th>Duyệt Giải Trình</th>
@@ -75,11 +76,20 @@
                             <td class="fw-semibold text-dark">@a.StaffName</td>
                             <td>
                                 <span class="badge @(a.Role == StaffRole.Manager ? "bg-danger" : a.Role == StaffRole.Cashier ? "bg-success" : a.Role == StaffRole.Kitchen ? "bg-warning text-dark" : "bg-primary")">
-                                    @a.Role
+                                    @(a.Role switch
+                                    {
+                                        StaffRole.Manager => "Quản lý",
+                                        StaffRole.Cashier => "Thu ngân",
+                                        StaffRole.Kitchen => "Đầu bếp",
+                                        _ => "Phục vụ bàn"
+                                    })
                                 </span>
                             </td>
                             <td>
                                 <strong>@a.CheckInTime.ToLocalTime().ToString("HH:mm:ss")</strong>
+                            </td>
+                            <td>
+                                @(a.CheckOutTime.HasValue ? a.CheckOutTime.Value.ToLocalTime().ToString("HH:mm:ss") : "-")
                             </td>
                             <td>
                                 @if (a.IsLate)
@@ -156,7 +166,7 @@
 
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Mã PIN Quản lý (xác thực) *</label>
-                        <input type="password" name="ManagerPin" class="form-control" placeholder="Nhập PIN (1234)..." required />
+                        <input type="password" name="ManagerPin" class="form-control" placeholder="Nhập mã PIN Quản lý..." required />
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">

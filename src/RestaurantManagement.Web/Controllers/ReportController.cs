@@ -53,15 +53,15 @@ public class ReportController : Controller
         var report = await _reportService.GetRevenueReportAsync(from, to);
 
         var sb = new StringBuilder();
-        sb.AppendLine("Ngày,Số lượng hóa đơn,Tổng tiền món,Phụ thu cao điểm,Thuế VAT (8%),Giảm giá thành viên,Thực thu");
+        sb.AppendLine("Ngày,Số lượng hóa đơn,Tổng tiền món,Phụ thu cao điểm,Thuế VAT (8%),Chiết khấu ưu đãi,Tiền cọc đã trừ,Thực thu");
 
         foreach (var day in report.DailyBreakdown)
         {
-            sb.AppendLine($"{day.Date:dd/MM/yyyy},{day.InvoicesCount},{day.GrossAmount},{day.SurchargeAmount},{day.VatAmount},{day.DiscountAmount},{day.FinalAmount}");
+            sb.AppendLine($"{day.Date:dd/MM/yyyy},{day.InvoicesCount},{day.GrossAmount},{day.SurchargeAmount},{day.VatAmount},{day.DiscountAmount},{day.DepositDeducted},{day.FinalAmount}");
         }
 
         sb.AppendLine();
-        sb.AppendLine($"TỔNG CỘNG,{report.TotalInvoices},{report.GrossTotal},{report.SurchargeTotal},{report.VatTotal},{report.DiscountTotal},{report.NetTotal}");
+        sb.AppendLine($"TỔNG CỘNG,{report.TotalInvoices},{report.GrossTotal},{report.SurchargeTotal},{report.VatTotal},{report.DiscountTotal},{report.DepositTotal},{report.NetTotal}");
         sb.AppendLine($"Tiền mặt: {report.CashTotal}, Chuyển khoản VietQR: {report.TransferTotal}");
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
